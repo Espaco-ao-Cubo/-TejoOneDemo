@@ -1,0 +1,1365 @@
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>TejoOne Attitude</title>
+<!-- iPhone / iPad: "Add to Home Screen" opens it full screen like an app -->
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="TejoOne">
+<link rel="apple-touch-icon" href="icon-180.png">
+<link rel="icon" type="image/png" href="icon-180.png">
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@75..100,500..800&family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:ital,wght@0,400;0,500;0,600;1,400&display=swap">
+<style>
+/* Layout: a ground-station console. The satellite runs large on the left, the filter's live numbers sit beside it, sensor traces run underneath, and setup folds away below. */
+:root {
+  --paper: #EDF0F3;
+  --surface: #FFFFFF;
+  --sunk: #E2E7EC;
+  --ink: #13202C;
+  --muted: #586775;
+  --line: #CED6DE;
+  --accent: #C9480F;
+  --accent-ink: #FFFFFF;
+  --accent-soft: #F8E2D5;
+  --ax-x: #D23A2A;
+  --ax-y: #22914A;
+  --ax-z: #2A6EDF;
+  --a-eskf: #13804A;
+  --good: #1D8A4C;
+  --warn: #A86C0E;
+  --bad: #C42B2B;
+  --f-display: "Archivo", "Arial Narrow", "Segoe UI", system-ui, sans-serif;
+  --f-body: "IBM Plex Sans", "Segoe UI", system-ui, -apple-system, sans-serif;
+  --f-mono: "IBM Plex Mono", "Cascadia Mono", Consolas, ui-monospace, monospace;
+  --r: 10px;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --paper: #0D1319; --surface: #141C24; --sunk: #1B252F; --ink: #E2E9F0; --muted: #93A2B0; --line: #27333F;
+    --accent: #FF8A45; --accent-ink: #1A0E05; --accent-soft: #3A2316;
+    --ax-x: #FF6B5B; --ax-y: #4CC97A; --ax-z: #5C9BFF; --a-eskf: #3DD68C;
+    --good: #4CC97A; --warn: #E3A63F; --bad: #FF6B5B;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --paper: #0D1319; --surface: #141C24; --sunk: #1B252F; --ink: #E2E9F0; --muted: #93A2B0; --line: #27333F;
+  --accent: #FF8A45; --accent-ink: #1A0E05; --accent-soft: #3A2316;
+  --ax-x: #FF6B5B; --ax-y: #4CC97A; --ax-z: #5C9BFF; --a-eskf: #3DD68C;
+  --good: #4CC97A; --warn: #E3A63F; --bad: #FF6B5B;
+  color-scheme: dark;
+}
+
+* { box-sizing: border-box; }
+[hidden] { display: none !important; }   /* also when the page is opened as a local file */
+html, body { margin: 0; }
+html { -webkit-text-size-adjust: 100%; touch-action: manipulation; }   /* no double-tap zoom on phones and tablets */
+body { background: var(--paper); color: var(--ink); font-family: var(--f-body); font-size: 15px; line-height: 1.55; }
+.wrap { max-width: 1320px; margin: 0 auto; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); }
+h1, h2, h3 { font-family: var(--f-display); text-wrap: balance; margin: 0; letter-spacing: -0.01em; }
+h1 { font-size: clamp(2.4rem, 6vw, 4rem); font-weight: 800; font-stretch: 78%; line-height: 1; }
+h3 { font-size: 1.05rem; font-weight: 700; font-stretch: 88%; }
+p { margin: 0; }
+code { font-family: var(--f-mono); font-size: 0.88em; background: var(--sunk); padding: 0.08em 0.35em; border-radius: 4px; }
+.eyebrow { font-family: var(--f-mono); font-size: 0.75rem; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); }
+button, select, input { font: inherit; color: inherit; }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+.mast { padding-block: 18px 12px; display: flex; flex-wrap: wrap; gap: 8px 32px; align-items: end; justify-content: space-between; }
+.mast .titles { display: grid; gap: 6px; }
+.mast h1 { font-size: clamp(2rem, 4.5vw, 3rem); }
+.mast .lede { max-width: 62ch; color: var(--muted); font-size: 0.98rem; }
+
+.toolbar { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; padding-block: 12px; border-top: 1px solid var(--line); }
+.seg { display: inline-flex; background: var(--sunk); border-radius: 8px; padding: 3px; gap: 2px; }
+.seg button { border: 0; background: transparent; padding: 6px 12px; border-radius: 6px; cursor: pointer; font-size: 0.9rem; color: var(--muted); white-space: nowrap; }
+.seg button[aria-pressed="true"] { background: var(--surface); color: var(--ink); font-weight: 600; box-shadow: 0 1px 2px rgb(0 0 0 / 0.12); }
+.btn { border: 1px solid var(--line); background: var(--surface); padding: 6px 12px; border-radius: 8px; cursor: pointer; font-size: 0.9rem; white-space: nowrap; }
+.btn:hover { border-color: var(--muted); }
+.btn.primary { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); font-weight: 600; }
+.btn:disabled { opacity: 0.5; cursor: default; }
+.pill { display: inline-flex; align-items: center; gap: 6px; font-family: var(--f-mono); font-size: 0.78rem; padding: 4px 10px; border-radius: 999px; background: var(--sunk); color: var(--muted); white-space: nowrap; }
+.pill::before { content: ""; width: 7px; height: 7px; border-radius: 50%; background: currentColor; }
+.pill.good { color: var(--good); } .pill.warn { color: var(--warn); } .pill.bad { color: var(--bad); }
+.spacer { flex: 1; }
+.check { display: inline-flex; gap: 6px; align-items: center; font-size: 0.9rem; cursor: pointer; }
+.check input { accent-color: var(--accent); width: 16px; height: 16px; }
+.host, select { border: 1px solid var(--line); background: var(--surface); border-radius: 8px; padding: 5px 8px; font-size: 0.9rem; }
+.host { font-family: var(--f-mono); font-size: 0.85rem; width: 13em; max-width: 100%; }
+
+.blocked { background: var(--surface); border: 1px solid var(--line); border-left: 3px solid var(--warn); border-radius: var(--r); padding: 12px 14px; margin-bottom: 12px; display: grid; gap: 6px; }
+.hint { color: var(--muted); font-size: 0.85rem; }
+
+/* Console: satellite on the left; traces and numbers on the right, pinned so they stay in view */
+.console { display: grid; grid-template-columns: minmax(0, 1.55fr) minmax(0, 1fr); gap: 12px; align-items: start; }
+.side { display: grid; gap: 12px; min-width: 0; position: sticky; top: calc(env(safe-area-inset-top, 0px) + 12px); }
+@media (max-width: 1000px) { .console { grid-template-columns: minmax(0, 1fr); } .side { position: static; } }
+.card { background: var(--surface); border: 1px solid var(--line); border-radius: var(--r); min-width: 0; }
+.view-card { overflow: hidden; display: grid; }
+.view-card header { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 10px; padding: 12px 14px 0; }
+.dot { width: 10px; height: 10px; border-radius: 3px; flex: none; background: var(--a-eskf); }
+.view-card header .src { margin-left: auto; }
+.stage { position: relative; aspect-ratio: 4 / 3; max-width: 100%; }
+.stage canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
+.stage .loading { position: absolute; left: 14px; bottom: 12px; z-index: 1; pointer-events: none; }
+.angles { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); border-top: 1px solid var(--line); }
+.angles div { padding: 10px 14px 12px; display: grid; gap: 2px; }
+.angles div + div { border-left: 1px solid var(--line); }
+.angles span { color: var(--muted); font-size: 0.8rem; display: flex; align-items: center; gap: 6px; }
+.angles span i { width: 8px; height: 8px; border-radius: 2px; display: inline-block; }
+.angles b { font: 600 clamp(1.4rem, 3vw, 2.1rem)/1.1 var(--f-mono); font-variant-numeric: tabular-nums; white-space: pre; }
+
+.tele { padding: 12px 14px; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px 18px; }
+.tele section { display: grid; gap: 6px; align-content: start; min-width: 0; }
+.tele section.wide { grid-column: 1 / -1; }
+@media (max-width: 460px) { .tele { grid-template-columns: minmax(0, 1fr); } }
+.kv { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 3px 14px; font-family: var(--f-mono); font-size: 0.82rem; font-variant-numeric: tabular-nums; margin: 0; }
+.kv dt { color: var(--muted); } .kv dd { margin: 0; text-align: right; overflow-wrap: anywhere; }
+.chips { display: flex; flex-wrap: wrap; gap: 6px; }
+
+/* Traces */
+.traces { padding: 12px 14px; display: grid; gap: 8px; }
+.traces-head { display: flex; flex-wrap: wrap; gap: 6px 10px; align-items: center; justify-content: space-between; }
+.chart { width: 100%; display: block; }
+.chart.tall { height: 150px; } .chart.short { height: 62px; }
+.raw-grid { display: grid; grid-template-columns: minmax(0, 1fr); gap: 6px; }
+.lbl { font-family: var(--f-mono); font-size: 0.75rem; color: var(--muted); display: flex; justify-content: space-between; gap: 6px; }
+.axis-key { display: inline-flex; gap: 10px; } .axis-key i { font-style: normal; font-weight: 500; }
+
+/* Setup */
+details.setup { margin-top: 12px; }
+details.setup > summary { cursor: pointer; padding: 12px 14px; font-weight: 600; list-style: none; display: flex; gap: 10px; align-items: center; }
+details.setup > summary::-webkit-details-marker { display: none; }
+details.setup > summary::before { content: "▸"; color: var(--muted); transition: transform 0.15s; }
+details.setup[open] > summary::before { transform: rotate(90deg); }
+details.setup > summary .hint { font-weight: 400; }
+.setup-body { padding: 0 14px 14px; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px 24px; }
+@media (max-width: 800px) { .setup-body { grid-template-columns: minmax(0, 1fr); } }
+.group { display: grid; gap: 8px; align-content: start; min-width: 0; }
+.group-title { font-weight: 600; }
+.row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.derived { font-family: var(--f-mono); font-size: 0.78rem; color: var(--muted); font-variant-numeric: tabular-nums; }
+.meter { height: 6px; background: var(--sunk); border-radius: 3px; overflow: hidden; }
+.meter i { display: block; height: 100%; width: 0; background: var(--accent); }
+.log { font-family: var(--f-mono); font-size: 0.74rem; background: var(--sunk); border-radius: 8px; padding: 8px 10px; white-space: pre-wrap; word-break: break-all; max-height: 9.5em; overflow: auto; color: var(--muted); margin: 0; }
+
+/* Presentation */
+.present { position: fixed; inset: 0; z-index: 50; background: var(--paper); display: grid; grid-template-rows: minmax(0, 1fr) auto; grid-template-columns: minmax(0, 1fr) auto; }
+.present[hidden] { display: none; }
+.present-stage { position: relative; min-height: 0; }
+.present-side { width: min(400px, 34vw); overflow: auto; padding: calc(12px + env(safe-area-inset-top, 0px)) max(12px, env(safe-area-inset-right, 0px)) 12px 0; display: grid; align-content: center; }
+.present-side[hidden] { display: none; }
+.present-bar { grid-column: 1 / -1; }
+@media (max-width: 760px) { .present-side { display: none; } }
+.present-stage canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
+.present-hint { position: absolute; left: 50%; top: calc(16px + env(safe-area-inset-top, 0px)); transform: translateX(-50%); margin: 0; padding: 8px 14px; border-radius: 8px; background: var(--surface); border: 1px solid var(--line); color: var(--muted); font-size: 0.95rem; max-width: calc(100% - 32px); text-align: center; }
+.present-brand { position: absolute; left: max(20px, env(safe-area-inset-left, 0px)); top: calc(18px + env(safe-area-inset-top, 0px)); display: grid; gap: 2px; pointer-events: none; }
+.present-brand b { font: 800 2rem/1 var(--f-display); font-stretch: 78%; }
+.present-bar { display: flex; flex-wrap: wrap; gap: 12px 18px; align-items: center; padding: 12px max(20px, env(safe-area-inset-right, 0px)) calc(12px + env(safe-area-inset-bottom, 0px)) max(20px, env(safe-area-inset-left, 0px)); border-top: 1px solid var(--line); background: var(--surface); }
+.present-angles { display: flex; gap: 28px; margin-right: auto; }
+.present-angles span { display: block; color: var(--muted); font-size: 0.8rem; }
+.present-angles b { font: 600 2.2rem/1.1 var(--f-mono); font-variant-numeric: tabular-nums; white-space: pre; }
+@media (max-width: 640px) { .present-angles { gap: 16px; } .present-angles b { font-size: 1.4rem; } .present-brand { display: none; } }
+.present-hint, .cube-cal, .present-brand { z-index: 2; }
+.cube-cal { position: absolute; right: max(16px, env(safe-area-inset-right, 0px)); top: calc(16px + env(safe-area-inset-top, 0px)); width: min(380px, calc(100% - 32px)); max-height: calc(100% - 32px); overflow: auto; background: var(--surface); border: 1px solid var(--line); border-radius: var(--r); padding: 14px 16px; display: grid; gap: 10px; box-shadow: 0 6px 24px rgb(0 0 0 / 0.18); }
+.cube-cal h3 { margin: 0; font-size: 1rem; }
+.cube-cal ol { margin: 0; padding-left: 1.3em; display: grid; gap: 6px; }
+.cube-cal li { color: var(--muted); }
+.cube-cal li.done { color: var(--good); }
+.cube-cal li.now { color: var(--ink); }
+.cube-cal li span { font-size: 0.9rem; }
+#cc-msg { display: grid; gap: 6px; font-size: 0.92rem; }
+#cc-msg .warn { color: var(--warn); } #cc-msg .good { color: var(--good); }
+
+footer.foot { border-top: 1px solid var(--line); margin-top: 28px; padding-block: 18px 36px; color: var(--muted); font-size: 0.85rem; }
+@media (max-width: 520px) { .angles div { padding-inline: 8px; } }
+</style>
+
+<div class="wrap">
+  <header class="mast">
+    <div class="titles">
+      <div class="eyebrow">1U CubeSat · ESP32 · ICM-20600 + AK09918</div>
+      <h1>TejoOne</h1>
+    </div>
+    <p class="lede">Live attitude of the TejoOne model. An error-state Kalman filter fuses the gyroscope, accelerometer and magnetometer into one orientation, and the satellite follows it.</p>
+  </header>
+
+  <section id="lab" aria-label="Live attitude">
+    <div class="toolbar">
+      <div class="seg" role="group" aria-label="Data source">
+        <button id="src-sim" aria-pressed="true">Simulated</button>
+        <button id="src-wifi" aria-pressed="false">ESP32 · Wi-Fi</button>
+      </div>
+      <input class="host" id="wifi-host" value="imu-lab.local" aria-label="ESP32 address on the network" spellcheck="false" hidden>
+      <button class="btn primary" id="btn-connect" hidden>Connect ESP32</button>
+      <select id="pattern" aria-label="Simulated motion">
+        <option value="still">Still</option>
+        <option value="wobble" selected>Slow wobble</option>
+        <option value="spin">Turntable spin</option>
+        <option value="aggressive">Tumbling</option>
+        <option value="loop">Loop through vertical</option>
+        <option value="handle">Pick up and put back</option>
+      </select>
+      <span class="pill good" id="status">Simulating · 100 Hz</span>
+      <span class="spacer"></span>
+      <label class="check"><input type="checkbox" id="use-mag" checked> Use magnetometer</label>
+      <button class="btn" id="btn-pause">Pause</button>
+      <button class="btn" id="btn-reset" title="Restart the filter at level, pointing north">Reset filter</button>
+      <button class="btn" id="btn-zero" title="Hold the satellite the way you will present it, then press this (or Z)">Set zero</button>
+      <button class="btn" id="btn-unzero" hidden>Clear zero</button>
+      <label class="check" title="Off: the model shows only tilt, never turning. Safer where the compass is unreliable."><input type="checkbox" id="follow-yaw" checked> Follow turning</label>
+      <button class="btn primary" id="btn-present">Present</button>
+    </div>
+
+    <div class="blocked" id="serial-blocked" hidden>
+      <strong>This page can't reach the ESP32.</strong>
+      <span class="hint">Browsers block secure (https) pages from talking to devices on your network. On a computer, open <code>index.html</code> from the viewer folder (Windows: <code>Open TejoOne.bat</code>, Linux: <code>start-linux.sh</code>). On an iPhone or iPad, run <code>serve.py</code> on a computer and open the <code>http://</code> address it prints. Also check that this device and the ESP32 are on the same Wi-Fi.</span>
+    </div>
+
+    <div class="console">
+      <article class="card view-card">
+        <header>
+          <span class="dot"></span><h3>ESKF attitude</h3>
+          <span class="pill" id="est-src">Browser · simulated motion</span>
+          <select id="main-model" class="src" aria-label="Model"><option value="sat">TejoOne</option><option value="board">ESP32 board</option></select>
+          <button class="btn" id="btn-inside" hidden title="Same as tapping the real satellite twice, or pressing E">Look inside</button>
+        </header>
+        <div class="stage" id="stage-main"><span class="pill warn loading" id="model-state">Loading TejoOne model…</span></div>
+        <div class="angles">
+          <div><span><i style="background:var(--ax-x)"></i>Roll</span><b id="a-r">+  0.0</b></div>
+          <div><span><i style="background:var(--ax-y)"></i>Pitch</span><b id="a-p">+  0.0</b></div>
+          <div><span><i style="background:var(--ax-z)"></i>Yaw</span><b id="a-y">+  0.0</b></div>
+        </div>
+      </article>
+
+      <div class="side" id="side">
+        <div class="card traces" id="traces">
+          <div class="traces-head">
+            <h3>Attitude</h3>
+            <span class="lbl"><span class="axis-key"><i style="color:var(--ax-x)">roll</i><i style="color:var(--ax-y)">pitch</i><i style="color:var(--ax-z)">yaw</i></span></span>
+            <span class="eyebrow">° · last 10 s</span>
+          </div>
+          <canvas class="chart tall" id="angle-chart" aria-label="Roll, pitch and yaw over the last 10 seconds"></canvas>
+          <div class="raw-grid">
+            <div><div class="lbl"><span>Accel · g</span><span class="axis-key"><i style="color:var(--ax-x)">x</i><i style="color:var(--ax-y)">y</i><i style="color:var(--ax-z)">z</i></span></div><canvas class="chart short" id="raw-acc"></canvas></div>
+            <div><div class="lbl"><span>Gyro · °/s</span><span class="axis-key"><i style="color:var(--ax-x)">x</i><i style="color:var(--ax-y)">y</i><i style="color:var(--ax-z)">z</i></span></div><canvas class="chart short" id="raw-gyro"></canvas></div>
+            <div><div class="lbl"><span>Mag · µT</span><span class="axis-key"><i style="color:var(--ax-x)">x</i><i style="color:var(--ax-y)">y</i><i style="color:var(--ax-z)">z</i></span></div><canvas class="chart short" id="raw-mag"></canvas></div>
+          </div>
+        </div>
+
+        <aside class="card tele" aria-label="Telemetry">
+          <section class="wide">
+            <div class="eyebrow">Filter</div>
+            <div class="chips" id="chips"></div>
+          </section>
+          <section>
+            <dl class="kv">
+              <dt>σ</dt><dd id="t-sigma">—</dd>
+              <dt>Bias</dt><dd id="t-bias">—</dd>
+              <dt>q</dt><dd id="t-quat">—</dd>
+            </dl>
+          </section>
+          <section>
+            <dl class="kv">
+              <dt>Rate</dt><dd id="t-rate">—</dd>
+              <dt>|a|</dt><dd id="t-acc">—</dd>
+              <dt>Field</dt><dd id="field-out">—</dd>
+              <dt>Dip</dt><dd id="dip-out">—</dd>
+            </dl>
+          </section>
+          <section class="wide" id="t-board" hidden>
+            <div class="eyebrow">ESP32</div>
+            <dl class="kv">
+              <dt>Fusion loop</dt><dd id="b-loop">—</dd>
+              <dt>Chip temp</dt><dd id="b-temp">—</dd>
+              <dt>Full scale hit</dt><dd id="b-clip">—</dd>
+            </dl>
+          </section>
+        </aside>
+      </div>
+    </div>
+
+    <details class="card setup" id="setup">
+      <summary>Calibration and ESP32 setup <span class="hint">before the show</span></summary>
+      <div class="setup-body">
+        <div class="group">
+          <div class="group-title">Gyro bias</div>
+          <p class="hint">Keep the satellite completely still, then measure. The 3 s average is subtracted from every reading.</p>
+          <div class="row"><button class="btn" id="cal-gyro">Measure gyro bias (3 s)</button><button class="btn" id="cal-gyro-clear">Clear</button></div>
+          <div class="meter"><i id="cal-gyro-bar"></i></div>
+          <div class="derived" id="cal-gyro-out">bias x 0.000 · y 0.000 · z 0.000 °/s</div>
+        </div>
+        <div class="group">
+          <div class="group-title">Magnetometer</div>
+          <p class="hint">Start, then turn the satellite slowly through every direction for 20 s, away from metal and magnets.</p>
+          <div class="row"><button class="btn" id="cal-mag">Start 20 s calibration</button><button class="btn" id="cal-mag-clear">Clear</button></div>
+          <div class="meter"><i id="cal-mag-bar"></i></div>
+          <div class="derived" id="cal-mag-out">offset 0.0 · 0.0 · 0.0 µT · scale 1.00 · 1.00 · 1.00</div>
+        </div>
+        <div class="group">
+          <div class="group-title">Magnetometer axes</div>
+          <p class="hint">Which accelerometer axis each magnetometer axis lines up with. The dip angle in Sensors stays steady while you turn the satellite when these are right.</p>
+          <div class="row" id="map-row"></div>
+        </div>
+        <div class="group">
+          <div class="group-title">Double tap to open the model</div>
+          <p class="hint">Tap the real satellite twice, quickly, and the model opens up; twice again closes it. Knock firmly on a panel with a fingertip. If taps are missed, lower the threshold; if handling it opens the model, raise it.</p>
+          <div class="row">
+            <label for="tap-thr" class="derived">Threshold</label>
+            <input type="range" id="tap-thr" min="0" max="1000" step="1" style="flex:1;min-width:8em;accent-color:var(--accent)">
+            <output id="tap-thr-out" class="derived" for="tap-thr">0.12 g</output>
+          </div>
+          <div class="row">
+            <label for="tap-min" class="derived">Shortest gap</label>
+            <input type="range" id="tap-min" min="0.05" max="0.5" step="0.01" style="flex:1;min-width:8em;accent-color:var(--accent)">
+            <output id="tap-min-out" class="derived" for="tap-min">0.10 s</output>
+          </div>
+          <div class="row">
+            <label for="tap-max" class="derived">Longest gap</label>
+            <input type="range" id="tap-max" min="0.2" max="1.5" step="0.05" style="flex:1;min-width:8em;accent-color:var(--accent)">
+            <output id="tap-max-out" class="derived" for="tap-max">0.60 s</output>
+          </div>
+          <p class="hint">The second tap has to come between the shortest and the longest gap after the first.</p>
+          <div class="derived" id="tap-last">Last jolt: —</div>
+          <div class="row"><button class="btn" id="tap-sim">Simulate a double tap</button></div>
+        </div>
+        <div class="group">
+          <div class="group-title">Send to the ESP32 (Wi-Fi)</div>
+          <p class="hint">Stores the magnetometer offset, scale and axis map in the ESP32's flash and restarts its filter.</p>
+          <div class="row"><button class="btn" id="cal-send" disabled>Send calibration to ESP32</button><span class="derived" id="cal-send-out">Connect over Wi-Fi first</span></div>
+        </div>
+      </div>
+    </details>
+
+    <div class="present" id="present" hidden role="dialog" aria-label="Presentation view">
+      <div class="present-stage" id="present-stage">
+        <div class="present-brand"><span class="eyebrow">1U CubeSat</span><b>TejoOne</b></div>
+        <p class="present-hint" id="pr-hint"></p>
+        <div class="cube-cal" id="cube-cal" hidden role="region" aria-label="Satellite setup">
+          <h3>Satellite setup</h3>
+          <p class="hint">Finds how the IMU sits inside the satellite and what level is on this table. Takes about a minute. Each step: put the satellite in the pose, press Capture (or Space) and keep it still for a second.</p>
+          <ol id="cc-steps"></ol>
+          <div id="cc-msg" aria-live="polite"></div>
+          <div class="row">
+            <button class="btn primary" id="cc-go">Capture</button>
+            <button class="btn" id="cc-redo" hidden>Start over</button>
+            <button class="btn" id="cc-close">Close</button>
+          </div>
+          <p class="hint" id="cc-forget-row" hidden><button class="btn" id="cc-forget">Remove satellite setup</button></p>
+        </div>
+      </div>
+      <div class="present-side" id="present-side" aria-label="Telemetry graphs"></div>
+      <div class="present-bar">
+        <div class="present-angles">
+          <div><span>Roll</span><b id="pr-r">0.0</b></div><div><span>Pitch</span><b id="pr-p">0.0</b></div><div><span>Yaw</span><b id="pr-y">0.0</b></div>
+        </div>
+        <select id="pr-model" aria-label="Model"><option value="sat">TejoOne</option><option value="board">ESP32 board</option></select>
+        <select id="pr-face" aria-label="Which way the model faces"><option value="audience">Camera toward audience</option><option value="into">Camera into the screen</option></select>
+        <button class="btn" id="pr-inside" hidden>Look inside (E)</button>
+        <button class="btn" id="pr-setup">Satellite setup…</button>
+        <button class="btn primary" id="pr-zero">Set zero (Space)</button>
+        <label class="check"><input type="checkbox" id="pr-follow" checked> Follow turning (F)</label>
+        <label class="check"><input type="checkbox" id="pr-graphs" checked> Graphs (G)</label>
+        <button class="btn" id="pr-exit">Exit (Esc)</button>
+      </div>
+    </div>
+  </section>
+
+  <footer class="foot">TejoOne 1U CubeSat model, attitude from an ESKF on an ESP32 with ICM-20600 and AK09918. The camera face is the satellite's +X (front) and the top solar panel its +Z.</footer>
+</div>
+
+<!-- Everything the page needs sits next to it, so the show also runs offline. -->
+<script src="lib/three.min.js"></script>
+<script src="lib/GLTFLoader.js"></script>
+<script src="tejo_model.js"></script>
+<script>
+(() => {
+'use strict';
+const D2R = Math.PI / 180, R2D = 180 / Math.PI;
+const HIST = 1000;            // 10 s at 100 Hz
+const SIM_DT = 0.01;
+const $ = id => document.getElementById(id);
+
+/* ============ Quaternion math. q = [w,x,y,z] rotates sensor -> world (NWU) ============ */
+const Q = {
+  id: () => [1, 0, 0, 0],
+  mul: (a, b) => [
+    a[0]*b[0] - a[1]*b[1] - a[2]*b[2] - a[3]*b[3],
+    a[0]*b[1] + a[1]*b[0] + a[2]*b[3] - a[3]*b[2],
+    a[0]*b[2] - a[1]*b[3] + a[2]*b[0] + a[3]*b[1],
+    a[0]*b[3] + a[1]*b[2] - a[2]*b[1] + a[3]*b[0]],
+  conj: q => [q[0], -q[1], -q[2], -q[3]],
+  norm(q) { const n = Math.hypot(q[0], q[1], q[2], q[3]) || 1; return [q[0]/n, q[1]/n, q[2]/n, q[3]/n]; },
+  fromRotVec(v) {
+    const a = Math.hypot(v[0], v[1], v[2]);
+    if (a < 1e-12) return Q.norm([1, v[0]/2, v[1]/2, v[2]/2]);
+    const s = Math.sin(a/2) / a;
+    return [Math.cos(a/2), v[0]*s, v[1]*s, v[2]*s];
+  },
+  toRotVec(q) {
+    let [w, x, y, z] = q;
+    if (w < 0) { w = -w; x = -x; y = -y; z = -z; }
+    const s = Math.hypot(x, y, z);
+    if (s < 1e-12) return [2*x, 2*y, 2*z];
+    const a = 2 * Math.atan2(s, w);
+    return [x/s*a, y/s*a, z/s*a];
+  },
+  fromEuler(r, p, y) {
+    const cr = Math.cos(r/2), sr = Math.sin(r/2), cp = Math.cos(p/2), sp = Math.sin(p/2), cy = Math.cos(y/2), sy = Math.sin(y/2);
+    return [cr*cp*cy + sr*sp*sy, sr*cp*cy - cr*sp*sy, cr*sp*cy + sr*cp*sy, cr*cp*sy - sr*sp*cy];
+  },
+  toEuler(q) {
+    const [w, x, y, z] = q;
+    return [
+      Math.atan2(2*(w*x + y*z), 1 - 2*(x*x + y*y)),
+      Math.asin(Math.max(-1, Math.min(1, 2*(w*y - z*x)))),
+      Math.atan2(2*(w*z + x*y), 1 - 2*(y*y + z*z))];
+  },
+  toSensor(q, v) { const r = Q.mul(Q.mul(Q.conj(q), [0, v[0], v[1], v[2]]), q); return [r[1], r[2], r[3]]; },
+  toWorld(q, v) { const r = Q.mul(Q.mul(q, [0, v[0], v[1], v[2]]), Q.conj(q)); return [r[1], r[2], r[3]]; },
+  yawQ: psi => [Math.cos(psi / 2), 0, 0, Math.sin(psi / 2)],
+};
+
+/* ============ Set zero, satellite mount and facing ============
+   shown = Y0⁻¹ · q · q0⁻¹ · Y0  (q0: orientation when zeroed, Y0: its heading), so a turn of the
+   real satellite shows as the same turn seen from your side of the table.
+   mount q_sc (satellite -> sensor) comes from the guided setup; face turns the whole picture so
+   the model's camera face points out of the screen. */
+const zero = { ref: null, follow: true, mount: null, face: 0 };
+const FACE_AUDIENCE = Math.atan2(4.4, -6.6);   // the 3D camera's direction, seen from the model
+const mounted = q => zero.mount ? Q.mul(q, zero.mount) : q;
+const cubeCal = { cap: null, step: 0, u: {}, qRest: null, result: null, msg: '' };
+function headingOf(q) {
+  let v = Q.toWorld(q, [1, 0, 0]);
+  if (Math.hypot(v[0], v[1]) < 0.35) v = Q.toWorld(q, [0, 0, -1]);
+  return Q.yawQ(Math.atan2(v[1], v[0]));
+}
+function makeRef(q) { const Y = headingOf(q); return { pre: Q.conj(Y), post: Q.mul(Q.conj(q), Y) }; }
+function shown(q, withFace = true) {
+  let d = mounted(q);
+  const r = zero.ref;
+  if (r) d = Q.mul(Q.mul(r.pre, d), r.post);
+  if (!zero.follow) d = Q.mul(Q.yawQ(-Q.toEuler(d)[2]), d);
+  if (withFace && zero.face) d = Q.mul(Q.yawQ(zero.face), d);
+  return Q.norm(d);
+}
+
+/* Guided setup: each step averages the accelerometer for 1 s at rest, giving "up" in sensor axes.
+   rest gives Z; tipping the camera face down/up gives Y; tipping left/right checks X. */
+const v3 = {
+  cross: (a, b) => [a[1]*b[2] - a[2]*b[1], a[2]*b[0] - a[0]*b[2], a[0]*b[1] - a[1]*b[0]],
+  dot: (a, b) => a[0]*b[0] + a[1]*b[1] + a[2]*b[2],
+  add: (a, b) => [a[0] + b[0], a[1] + b[1], a[2] + b[2]],
+  scale: (a, k) => [a[0]*k, a[1]*k, a[2]*k],
+  norm(a) { const n = Math.hypot(a[0], a[1], a[2]) || 1; return [a[0]/n, a[1]/n, a[2]/n]; },
+  angle: (a, b) => Math.acos(Math.max(-1, Math.min(1, v3.dot(v3.norm(a), v3.norm(b))))) * R2D,
+};
+function quatFromCols(X, Y, Z) {
+  const m = [[X[0], Y[0], Z[0]], [X[1], Y[1], Z[1]], [X[2], Y[2], Z[2]]], t = m[0][0] + m[1][1] + m[2][2];
+  let q;
+  if (t > 0) { const s = Math.sqrt(t + 1) * 2; q = [0.25*s, (m[2][1] - m[1][2])/s, (m[0][2] - m[2][0])/s, (m[1][0] - m[0][1])/s]; }
+  else if (m[0][0] > m[1][1] && m[0][0] > m[2][2]) { const s = Math.sqrt(1 + m[0][0] - m[1][1] - m[2][2]) * 2; q = [(m[2][1] - m[1][2])/s, 0.25*s, (m[0][1] + m[1][0])/s, (m[0][2] + m[2][0])/s]; }
+  else if (m[1][1] > m[2][2]) { const s = Math.sqrt(1 + m[1][1] - m[0][0] - m[2][2]) * 2; q = [(m[0][2] - m[2][0])/s, (m[0][1] + m[1][0])/s, 0.25*s, (m[1][2] + m[2][1])/s]; }
+  else { const s = Math.sqrt(1 + m[2][2] - m[0][0] - m[1][1]) * 2; q = [(m[1][0] - m[0][1])/s, (m[0][2] + m[2][0])/s, (m[1][2] + m[2][1])/s, 0.25*s]; }
+  return Q.norm(q);
+}
+function nearestAxis(v) {
+  let best = 0; for (let i = 1; i < 3; i++) if (Math.abs(v[i]) > Math.abs(v[best])) best = i;
+  return `sensor ${v[best] >= 0 ? '+' : '−'}${'XYZ'[best]}, ${(Math.acos(Math.min(1, Math.abs(v[best]))) * R2D).toFixed(1)}° off`;
+}
+function solveCube(u) {
+  const warn = [], Z = u.rest;
+  const Yf = v3.norm(v3.cross(u.fwd, Z)), Yb = v3.norm(v3.cross(Z, u.back));
+  if (v3.angle(Yf, Yb) > 35) warn.push(`Leaning forward and back disagree by ${v3.angle(Yf, Yb).toFixed(0)}°. Did you tip the camera face both times, and hold still?`);
+  let Y = v3.norm(v3.add(Yf, Yb));
+  let X = v3.norm(v3.cross(Y, Z));
+  const Xl = v3.norm(v3.cross(Z, u.left)), Xr = v3.norm(v3.cross(u.right, Z)), Xlr = v3.norm(v3.add(Xl, Xr));
+  const agree = v3.angle(X, Xlr);
+  if (agree < 30) X = v3.norm(v3.add(X, Xlr));
+  else if (agree > 150) warn.push('Left and right look swapped (left means your left while standing behind the satellite, looking the way the camera points). I used the forward and back steps only.');
+  else warn.push(`Left/right disagree with forward/back by ${agree.toFixed(0)}°. I used the forward and back steps only.`);
+  X = v3.norm(v3.add(X, v3.scale(Z, -v3.dot(X, Z))));
+  Y = v3.cross(Z, X);
+  return { q: quatFromCols(X, Y, Z), X, Y, Z, agree, warn };
+}
+const wrapPi = a => { while (a > Math.PI) a -= 2*Math.PI; while (a < -Math.PI) a += 2*Math.PI; return a; };
+const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
+let spare = null;
+function gauss() {
+  if (spare !== null) { const s = spare; spare = null; return s; }
+  let u = 0, v = 0; while (u === 0) u = Math.random(); v = Math.random();
+  const r = Math.sqrt(-2 * Math.log(u)); spare = r * Math.sin(2*Math.PI*v); return r * Math.cos(2*Math.PI*v);
+}
+
+/* ============ Error-state Kalman filter. Same math as main/fusion.c on the ESP32. ============
+   Nominal state: q, bg (rad/s). Error state (6): dtheta (body frame), dbg. */
+const STILL_RATE = 4 * D2R, STILL_ACC = 0.05, STILL_JERK = 0.02, STILL_TIME = 0.3;
+const I6 = () => [0, 1, 2, 3, 4, 5].map(i => [0, 1, 2, 3, 4, 5].map(j => i === j ? 1 : 0));
+function inv3(A) {
+  const c00 = A[1][1]*A[2][2] - A[1][2]*A[2][1], c01 = A[1][2]*A[2][0] - A[1][0]*A[2][2], c02 = A[1][0]*A[2][1] - A[1][1]*A[2][0];
+  const det = A[0][0]*c00 + A[0][1]*c01 + A[0][2]*c02; if (Math.abs(det) < 1e-30) return null; const d = 1 / det;
+  return [[c00*d, (A[0][2]*A[2][1] - A[0][1]*A[2][2])*d, (A[0][1]*A[1][2] - A[0][2]*A[1][1])*d],
+          [c01*d, (A[0][0]*A[2][2] - A[0][2]*A[2][0])*d, (A[0][2]*A[1][0] - A[0][0]*A[1][2])*d],
+          [c02*d, (A[0][1]*A[2][0] - A[0][0]*A[2][1])*d, (A[0][0]*A[1][1] - A[0][1]*A[1][0])*d]];
+}
+class ESKF {
+  constructor() { this.reset(Q.id()); }
+  reset(q) {
+    this.q = q.slice(); this.bg = [0, 0, 0]; this.magRef = 0; this.accUsed = false; this.magUsed = false;
+    this.stillT = 0; this.still = false; this.aPrev = null;
+    const a0 = 0.1 * 0.1, b0 = Math.pow(2 * D2R, 2);
+    this.P = I6().map((r, i) => r.map(v => v * (i < 3 ? a0 : b0)));
+  }
+  update(g, a, m, dt, P) {
+    this.predict(g, dt, P);
+    if (P.useMag) this.updateMag(m, P); else this.magUsed = false;
+    this.updateAccel(a, P);
+  }
+  predict(g, dt, P) {
+    const v = [(g[0] - this.bg[0]) * dt, (g[1] - this.bg[1]) * dt, (g[2] - this.bg[2]) * dt];
+    this.q = Q.norm(Q.mul(this.q, Q.fromRotVec(v)));
+    const F = I6();
+    F[0][1] = v[2]; F[0][2] = -v[1]; F[1][0] = -v[2]; F[1][2] = v[0]; F[2][0] = v[1]; F[2][1] = -v[0];
+    F[0][3] = F[1][4] = F[2][5] = -dt;
+    const FP = F.map(r => [0, 1, 2, 3, 4, 5].map(j => r.reduce((s, f, k) => s + f * this.P[k][j], 0)));
+    const Pn = FP.map(r => F.map(fr => r.reduce((s, x, k) => s + x * fr[k], 0)));
+    const rate = Math.hypot(v[0], v[1], v[2]) / dt;
+    if (rate > STILL_RATE) this.stillT = 0; else this.stillT += dt;
+    const qa = (Math.pow(P.eg * D2R, 2) + Math.pow(P.esf / 100 * rate, 2)) * dt, qb = Math.pow(P.eb * D2R, 2) * dt;
+    for (let i = 0; i < 3; i++) { Pn[i][i] += qa; Pn[i + 3][i + 3] += qb; }
+    this.P = this.sym(Pn);
+  }
+  sym(M) { for (let i = 0; i < 6; i++) for (let j = i + 1; j < 6; j++) { const v = (M[i][j] + M[j][i]) / 2; M[i][j] = M[j][i] = v; } return M; }
+  inject(dx) { this.q = Q.norm(Q.mul(this.q, Q.fromRotVec([dx[0], dx[1], dx[2]]))); for (let i = 0; i < 3; i++) this.bg[i] += dx[3 + i]; }
+  R3() { const [w, x, y, z] = this.q; return [[1 - 2*(y*y + z*z), 2*(x*y - w*z), 2*(x*z + w*y)], [2*(x*y + w*z), 1 - 2*(x*x + z*z), 2*(y*z - w*x)], [2*(x*z - w*y), 2*(y*z + w*x), 1 - 2*(x*x + y*y)]]; }
+  updateAccel(a, P) {
+    this.accUsed = false;
+    const an = Math.hypot(a[0], a[1], a[2]);
+    const jerk = this.aPrev ? Math.hypot(a[0] - this.aPrev[0], a[1] - this.aPrev[1], a[2] - this.aPrev[2]) : 1;
+    this.aPrev = a.slice();
+    if (Math.abs(an - 1) > STILL_ACC || jerk > STILL_JERK) this.stillT = 0;
+    this.still = this.stillT >= STILL_TIME;
+    const ra = this.still ? P.eas : P.ea;
+    if (an < 1e-3 || Math.abs(an - 1) > P.egate) return;
+    const z = a.map(v => v / an), R = this.R3(), gh = R[2];
+    const y = [z[0] - gh[0], z[1] - gh[1], z[2] - gh[2]];
+    const H = [[0, -gh[2], gh[1]], [gh[2], 0, -gh[0]], [-gh[1], gh[0], 0]];
+    const PHt = this.P.map(row => H.map(h => row[0]*h[0] + row[1]*h[1] + row[2]*h[2]));
+    const S = H.map((h, r) => [0, 1, 2].map(c => h[0]*PHt[0][c] + h[1]*PHt[1][c] + h[2]*PHt[2][c] + (r === c ? ra * ra : 0)));
+    const Si = inv3(S); if (!Si) return;
+    const K = PHt.map(row => [0, 1, 2].map(c => row[0]*Si[0][c] + row[1]*Si[1][c] + row[2]*Si[2][c]));
+    const dx = K.map(k => k[0]*y[0] + k[1]*y[1] + k[2]*y[2]);
+    for (let i = 0; i < 6; i++) for (let j = 0; j < 6; j++) this.P[i][j] -= K[i][0]*PHt[j][0] + K[i][1]*PHt[j][1] + K[i][2]*PHt[j][2];
+    this.sym(this.P); this.inject(dx); this.accUsed = true;
+  }
+  updateMag(m, P) {
+    this.magUsed = false;
+    const mn = Math.hypot(m[0], m[1], m[2]);
+    if (mn < 1) return;
+    const R = this.R3();
+    const dip = Math.acos(clamp((R[2][0]*m[0] + R[2][1]*m[1] + R[2][2]*m[2]) / mn, -1, 1));
+    if (this.magRef <= 0) { this.magRef = mn; this.dipRef = dip; }
+    if (Math.abs(mn / this.magRef - 1) > 0.15 || Math.abs(dip - this.dipRef) > 6 * D2R) return;
+    this.magRef += 0.002 * (mn - this.magRef);
+    this.dipRef += 0.002 * (dip - this.dipRef);
+    const mw = R.map(r => r[0]*m[0] + r[1]*m[1] + r[2]*m[2]);
+    if (Math.hypot(mw[0], mw[1]) < 0.15 * mn) return;
+    const z = Math.atan2(mw[1], mw[0]);
+    const H = [-R[2][0], -R[2][1], -R[2][2]];
+    const PHt = this.P.map(row => row[0]*H[0] + row[1]*H[1] + row[2]*H[2]);
+    const S = H[0]*PHt[0] + H[1]*PHt[1] + H[2]*PHt[2] + Math.pow(P.eh * D2R, 2);
+    const K = PHt.map(v => v / S);
+    for (let i = 0; i < 6; i++) for (let j = 0; j < 6; j++) this.P[i][j] -= K[i] * PHt[j];
+    this.sym(this.P); this.inject(K.map(k => k * z)); this.magUsed = true;
+  }
+  sigmaDeg() { return [0, 1, 2].map(i => Math.sqrt(Math.max(0, this.P[i][i])) * R2D); }
+}
+const eskf = new ESKF();
+const P = { useMag: true, eg: 0.01, eb: 0.0005, esf: 0, ea: 0.03, eas: 0.03, eh: 3, egate: 0.15 };
+
+/* ============ Simulated motion (until an ESP32 is connected) ============ */
+const S = { gyroBias: 0.8, gyroNoise: 0.03, gyroScale: 1.5, accNoise: 0.01, shake: 0, magNoise: 0.4, hardIron: 0 };
+const EARTH = (() => { const B = 44, dip = 52 * D2R; return [B*Math.cos(dip), 0, -B*Math.sin(dip)]; })();
+const BIAS_DIR = [0.62, -0.48, 0.62], HARD_DIR = [0.7, -0.4, 0.59], SCALE_DIR = [1, -0.7, 0.8];
+const HANDLE_MOVE = 15, HANDLE_CYCLE = 25;
+const handleEnv = c => c < HANDLE_MOVE ? Math.pow(Math.sin(Math.PI * c / HANDLE_MOVE), 2) : 0;
+const sim = {
+  t: 0, pattern: 'wobble', knocks: [],
+  qTrue(t) {
+    const s = Math.sin;
+    switch (this.pattern) {
+      case 'still': return Q.fromEuler(0, 0, 30*D2R);
+      case 'spin': return Q.fromEuler(8*D2R*s(1.1*t), 6*D2R*s(0.8*t), wrapPi(45*D2R*t));
+      case 'aggressive': return Q.fromEuler((55*s(2.1*t) + 18*s(5.3*t))*D2R, (38*s(1.7*t + 0.5) + 10*s(4.1*t))*D2R, (90*s(0.9*t) + 30*s(3.3*t))*D2R);
+      case 'handle': { const c = t % HANDLE_CYCLE, e = handleEnv(c); return Q.fromEuler(e*55*s(0.9*c)*D2R, e*40*s(0.7*c + 1)*D2R, (30 + e*70*s(0.5*c))*D2R); }
+      case 'loop': return Q.mul(Q.fromEuler(0, 0, 20*D2R), Q.mul(Q.fromRotVec([0, -0.7*t, 0]), Q.fromEuler(6*D2R*s(0.9*t), 0, 0)));
+      default: return Q.fromEuler(30*D2R*s(0.7*t), 20*D2R*s(0.5*t + 1), (30 + 45*s(0.25*t))*D2R);
+    }
+  },
+  step(dt) {
+    const q0 = this.qTrue(this.t), q1 = this.qTrue(this.t + dt);
+    const w = Q.toRotVec(Q.mul(Q.conj(q0), q1)).map(v => v / dt);
+    this.t += dt;
+    const t = this.t;
+    const gyro = w.map((v, i) => v*R2D*(1 + SCALE_DIR[i]*S.gyroScale/100) + BIAS_DIR[i]*S.gyroBias + gauss()*S.gyroNoise);
+    const lin = [S.shake*Math.sin(2*Math.PI*3.1*t), S.shake*Math.sin(2*Math.PI*2.3*t + 1), 0.6*S.shake*Math.sin(2*Math.PI*4.7*t + 2)];
+    if (this.pattern === 'handle') {
+      const c = t % HANDLE_CYCLE, e = 0.35 * handleEnv(c);
+      lin[0] += e*Math.sin(2*Math.PI*1.1*c); lin[1] += e*Math.sin(2*Math.PI*0.8*c + 1); lin[2] += 0.6*e*Math.sin(2*Math.PI*1.4*c + 2);
+    }
+    const acc = Q.toSensor(q1, [lin[0], lin[1], 1 + lin[2]]).map(v => v + gauss()*S.accNoise);
+    // "Simulate a double tap": two 10 ms knocks of 0.5 g, 0.3 s apart
+    if (this.knocks.length && t >= this.knocks[0]) { this.knocks.shift(); acc[0] += 0.5; acc[2] -= 0.2; }
+    const mag = Q.toSensor(q1, EARTH).map((v, i) => v + HARD_DIR[i]*S.hardIron + gauss()*S.magNoise);
+    return { dt, acc, gyro, mag };
+  },
+};
+
+/* ============ Calibration & axis mapping ============ */
+const MAP_OPTS = ['+x', '-x', '+y', '-y', '+z', '-z'];
+const cal = { gyroBias: [0, 0, 0], magOff: [0, 0, 0], magScale: [1, 1, 1], map: ['+x', '+y', '+z'], gyroJob: null, magJob: null };
+const mapMag = m => cal.map.map(s => { const i = 'xyz'.indexOf(s[1]); return (s[0] === '-' ? -1 : 1) * m[i]; });
+
+/* ============ History ============ */
+class Ring {
+  constructor(n) { this.a = new Float32Array(n); this.n = n; this.i = 0; this.len = 0; }
+  push(v) { this.a[this.i] = v; this.i = (this.i + 1) % this.n; if (this.len < this.n) this.len++; }
+  at(k) { return this.a[(this.i - this.len + k + this.n) % this.n]; }
+  last() { return this.len ? this.at(this.len - 1) : 0; }
+  clear() { this.i = 0; this.len = 0; }
+}
+const three = () => [0, 1, 2].map(() => new Ring(HIST));
+const att = three(), raw = { acc: three(), gyro: three(), mag: three() };
+const dipRing = new Ring(300), fieldRing = new Ring(300);
+function clearHistory() { [att, raw.acc, raw.gyro, raw.mag].forEach(rs => rs.forEach(r => r.clear())); dipRing.clear(); fieldRing.clear(); }
+
+/* ============ App state ============ */
+const app = { source: 'sim', paused: false, rateCount: 0, rate: 0, rateT: performance.now(), lastTms: null, board: null, boardQ: null, clipG: 0, clipA: 0, accNorm: 0 };
+const onBoard = () => app.source === 'wifi' && !!app.boardQ;   // the ESP32's own ESKF drives the model over Wi-Fi
+const current = () => onBoard() ? app.boardQ : eskf.q;
+function resetFilter(q) { eskf.reset(q || Q.id()); app.boardQ = null; }
+
+/* ============ Double tap on the real satellite, from the accelerometer ============
+   A knock is a short, sharp jolt: the reading jumps from one sample to the next by much more
+   than turning or carrying ever makes it (slow turning moves it ~0.004 g per 10 ms sample, a
+   knock ~0.5 g), for no more than about 40 ms, after a calm moment. Two knocks 0.1–0.6 s apart
+   are a double tap. The threshold is the "Double tap" setting under Calibration. */
+const TAP = { minGap: 0.10, maxGap: 0.60, maxLen: 0.045, calm: 0.08, refractory: 0.09 };
+const tap = { thr: 0.12, lp: null, t: 0, above: 0, peak: 0, calmT: 0, calmBefore: false, first: null, lastTap: -1, lastPeak: 0, flash: '', flashT: 0 };
+try { const v = parseFloat(localStorage.getItem('tejo-tap-thr')); if (v >= 0.02 && v <= 1.5) tap.thr = v; } catch (e) {}
+function tapStep(a, dt) {
+  tap.t += dt;
+  if (!tap.lp) { tap.lp = a.slice(); return; }
+  const dev = Math.hypot(a[0] - tap.lp[0], a[1] - tap.lp[1], a[2] - tap.lp[2]);   // jump since the previous sample
+  tap.lp = a.slice();
+  if (tap.t - tap.lastTap < Math.min(TAP.refractory, TAP.minGap * 0.9)) { tap.above = 0; return; }   // let the knock ring out
+  if (dev > tap.thr) {
+    if (tap.above === 0) { tap.calmBefore = tap.calmT >= TAP.calm; tap.peak = 0; }
+    tap.above += dt; tap.peak = Math.max(tap.peak, dev); tap.calmT = 0;
+    if (tap.above > TAP.maxLen) tap.first = null;          // too long for a knock: handling
+    return;
+  }
+  if (tap.above > 0) {                                      // a jolt just ended
+    const knock = tap.above <= TAP.maxLen && tap.calmBefore;
+    tap.above = 0; tap.lastPeak = tap.peak;
+    if (knock) {
+      tap.lastTap = tap.t;
+      const gap = tap.first === null ? -1 : tap.t - tap.first;
+      if (gap >= TAP.minGap && gap <= TAP.maxGap) { tap.first = null; onDoubleTap(); }
+      else { tap.first = tap.t; showTap('tap'); }
+    }
+  }
+  tap.calmT = dev < tap.thr * 0.5 ? tap.calmT + dt : 0;
+  if (tap.first !== null && tap.t - tap.first > TAP.maxGap) tap.first = null;
+}
+function showTap(text) { tap.flash = text; tap.flashT = performance.now(); }
+function onDoubleTap() { showTap('double tap'); toggleExplode(); }
+
+function processSample(s) {
+  if (cubeCal.cap) cubeCapture(s);
+  tapStep(s.acc, s.dt);
+  const gyroCal = s.gyro.map((v, i) => v - cal.gyroBias[i]);
+  const magMapped = mapMag(s.mag);
+  const mag = magMapped.map((v, i) => (v - cal.magOff[i]) * cal.magScale[i]);
+  const acc = s.acc;
+  if (cal.gyroJob) { const j = cal.gyroJob; s.gyro.forEach((v, i) => j.sum[i] += v); j.n++; if (j.n >= j.target) finishGyroCal(); }
+  if (cal.magJob) { const j = cal.magJob; magMapped.forEach((v, i) => { j.min[i] = Math.min(j.min[i], v); j.max[i] = Math.max(j.max[i], v); }); j.n++; if (j.n >= j.target) finishMagCal(); }
+  eskf.update(gyroCal.map(v => v * D2R), acc, mag, s.dt, P);
+  if (s.boardQ) app.boardQ = s.boardQ;
+  const e = Q.toEuler(shown(current(), false));
+  for (let k = 0; k < 3; k++) { att[k].push(e[k] * R2D); raw.acc[k].push(acc[k]); raw.gyro[k].push(gyroCal[k]); raw.mag[k].push(mag[k]); }
+  const an = Math.hypot(...acc), mn = Math.hypot(...mag);
+  app.accNorm = an;
+  if (an > 0.1 && mn > 1) {
+    const c = (acc[0]*mag[0] + acc[1]*mag[1] + acc[2]*mag[2]) / (an * mn);
+    dipRing.push(Math.acos(clamp(c, -1, 1)) * R2D - 90); fieldRing.push(mn);
+  }
+  app.rateCount++;
+}
+
+/* ============ Colors from theme tokens ============ */
+const C = {};
+function readTokens() {
+  const cs = getComputedStyle(document.documentElement);
+  ['--ink', '--muted', '--line', '--sunk', '--surface', '--accent', '--ax-x', '--ax-y', '--ax-z', '--a-eskf'].forEach(t => C[t] = cs.getPropertyValue(t).trim());
+}
+readTokens();
+
+/* ============ TejoOne model (gzipped GLB in tejo_model.js) ============ */
+const tejo = { scene: null, explode: [], failed: '', waiters: [] };
+
+/* Exploded view. Each assembly from the CAD tree moves away from the satellite's centre by
+   an amount proportional to where it sits: side panels slide straight out, boards in the stack
+   spread up and down, and screws travel with the part they hold because they sit in the same
+   place. The frame is split into its own parts (rails, end plates, springs) so it opens too.
+   Offsets are worked out once in the model's own frame (glTF: x front, y up, z side). */
+const EXPLODE_SIDE = 1.5, EXPLODE_UP = 2.1;
+function planExplode(model) {
+  const root = model.getObjectByName('TejoOne_1U') || model.children[0] || model;
+  const units = [];
+  root.children.forEach(g => g.children.forEach(c => {
+    if (/^Structure/.test(c.name) && c.children.length) c.children.forEach(cc => units.push(cc)); else units.push(c);
+  }));
+  const centre = new THREE.Box3().setFromObject(model).getCenter(new THREE.Vector3());
+  const path = o => { const p = []; for (let x = o; x && x !== model; x = x.parent) p.unshift(x.parent.children.indexOf(x)); return [0, ...p]; };
+  return units.map(u => {
+    const b = new THREE.Box3().setFromObject(u); if (b.isEmpty()) return null;
+    const c = b.getCenter(new THREE.Vector3()).sub(centre);
+    const off = new THREE.Vector3(c.x * EXPLODE_SIDE, c.y * EXPLODE_UP, c.z * EXPLODE_SIDE);
+    off.applyMatrix3(new THREE.Matrix3().setFromMatrix4(new THREE.Matrix4().copy(u.parent.matrixWorld).invert()));
+    return { path: path(u), base: u.position.clone(), off };
+  }).filter(Boolean);
+}
+const byPath = (root, p) => p.reduce((o, i) => o && o.children[i], root);
+const ease = t => t < 0.5 ? 4*t*t*t : 1 - Math.pow(-2*t + 2, 3) / 2;
+const reduceMotion = matchMedia('(prefers-reduced-motion: reduce)');
+async function loadTejo() {
+  try {
+    if (!window.THREE) throw new Error('the 3D library did not load');
+    if (!window.TEJO_GLB_GZ_B64) throw new Error('tejo_model.js is missing. Keep it in the same folder as this page');
+    if (!THREE.GLTFLoader) throw new Error('the model loader did not load');
+    if (!('DecompressionStream' in window)) throw new Error('this browser cannot unpack the model. Use a current Chrome, Edge, Firefox or Safari');
+    const bin = Uint8Array.from(atob(window.TEJO_GLB_GZ_B64), ch => ch.charCodeAt(0));
+    const buf = await new Response(new Blob([bin]).stream().pipeThrough(new DecompressionStream('gzip'))).arrayBuffer();
+    const gltf = await new Promise((res, rej) => new THREE.GLTFLoader().parse(buf, '', res, rej));
+    const model = gltf.scene;
+    // Colours and finishes come straight from TejoOne_organized.blend. Both faces of every
+    // surface are drawn, so the opened-up view never shows holes from inside.
+    model.traverse(o => { if (o.isMesh) (Array.isArray(o.material) ? o.material : [o.material]).forEach(m => { m.side = THREE.DoubleSide; }); });
+    const box = new THREE.Box3().setFromObject(model), size = box.getSize(new THREE.Vector3());
+    model.position.sub(box.getCenter(new THREE.Vector3()));
+    model.updateMatrixWorld(true);
+    tejo.explode = planExplode(model);
+    // glTF is Y-up, this scene is Z-up: +90° about X turns the model's top (+Y) into +Z.
+    // The model was exported with its camera face along +X, the satellite's front.
+    const upright = new THREE.Group(); upright.add(model); upright.rotation.x = Math.PI / 2;
+    upright.scale.setScalar(2.7 / Math.max(size.x, size.y, size.z));
+    tejo.scene = upright;
+  } catch (e) { tejo.failed = (e && e.message) || String(e); }
+  tejo.waiters.forEach(f => f()); tejo.waiters = [];
+}
+
+/* ============ 3D views ============ */
+const hasGL = (() => { try { const c = document.createElement('canvas'); return !!(window.WebGLRenderingContext && (c.getContext('webgl') || c.getContext('experimental-webgl'))); } catch (e) { return false; } })();
+function makeLabel(text, color) {
+  const c = document.createElement('canvas'); c.width = c.height = 64;
+  const x = c.getContext('2d'); x.fillStyle = color; x.font = '600 44px "IBM Plex Mono", monospace'; x.textAlign = 'center'; x.textBaseline = 'middle'; x.fillText(text, 32, 34);
+  const s = new THREE.Sprite(new THREE.SpriteMaterial({ map: new THREE.CanvasTexture(c), transparent: true, depthWrite: false }));
+  s.scale.set(0.55, 0.55, 0.55); return s;
+}
+function makeEnvironment(renderer) {   // a soft studio so metal parts reflect something
+  const pm = new THREE.PMREMGenerator(renderer), env = new THREE.Scene();
+  env.add(new THREE.Mesh(new THREE.BoxGeometry(12, 12, 12), new THREE.MeshBasicMaterial({ color: 0x5d646c, side: THREE.BackSide })));
+  const panel = (w, h, pos, color) => { const m = new THREE.Mesh(new THREE.PlaneGeometry(w, h), new THREE.MeshBasicMaterial({ color, side: THREE.DoubleSide })); m.position.set(...pos); m.lookAt(0, 0, 0); env.add(m); };
+  panel(7, 4, [0, 0, 5.9], 0xffffff); panel(4, 3, [-5.9, 2, 1.5], 0xe4ecff); panel(4, 3, [3, -5.9, 1], 0xfff1e2);
+  const tex = pm.fromScene(env, 0.04).texture; pm.dispose(); return tex;
+}
+const FLOOR_Z = -2.3;
+class View {
+  constructor(host) {
+    this.host = host; this.model = 'sat';
+    const r = this.renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+    r.setPixelRatio(Math.min(2, window.devicePixelRatio || 1));
+    r.setClearColor(0x000000, 0);
+    r.outputEncoding = THREE.sRGBEncoding;
+    r.toneMapping = THREE.NoToneMapping;   // show the Blender colours as authored
+    host.appendChild(r.domElement);
+    const sc = this.scene = new THREE.Scene();
+    sc.environment = makeEnvironment(r);
+    const cam = this.camera = new THREE.PerspectiveCamera(30, 16/11, 0.1, 100);
+    cam.up.set(0, 0, 1); cam.position.set(-8.4, 5.6, 5.8); cam.lookAt(0.2, 0, -0.5);
+    sc.add(new THREE.HemisphereLight(0xffffff, 0x445566, 0.6));
+    const dl = new THREE.DirectionalLight(0xffffff, 1.1); dl.position.set(-3, 2, 6); sc.add(dl);
+    const rim = new THREE.DirectionalLight(0xbfd4ff, 0.6); rim.position.set(5, -4, 2); sc.add(rim);
+
+    const b = this.board = new THREE.Group();
+    const pcbGeo = new THREE.BoxGeometry(3.0, 1.9, 0.1);
+    b.add(new THREE.Mesh(pcbGeo, new THREE.MeshStandardMaterial({ color: 0x1c5c4f, roughness: 0.6, metalness: 0.1 })));
+    this.edge = new THREE.LineSegments(new THREE.EdgesGeometry(pcbGeo), new THREE.LineBasicMaterial({ color: C['--a-eskf'] }));
+    b.add(this.edge);
+    const box = (w, h, d, x, y, z, color, metal) => { const m = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), new THREE.MeshStandardMaterial({ color, roughness: metal ? 0.35 : 0.7, metalness: metal ? 0.7 : 0.05 })); m.position.set(x, y, z); b.add(m); };
+    box(1.25, 1.0, 0.16, 0.7, 0, 0.13, 0xc4cad1, true);
+    box(0.3, 1.0, 0.02, 1.48, 0, 0.06, 0x0f2f28, false);
+    box(0.4, 0.4, 0.08, -0.75, 0.4, 0.09, 0x1a1a1a, false);
+    box(0.35, 0.55, 0.18, -1.42, 0, 0.14, 0x9aa3ab, true);
+    const arrow = (dir, color, len) => b.add(new THREE.ArrowHelper(new THREE.Vector3(...dir), new THREE.Vector3(0, 0, 0.12), len, color, 0.3, 0.16));
+    arrow([1, 0, 0], C['--ax-x'], 2.3); arrow([0, 1, 0], C['--ax-y'], 1.6); arrow([0, 0, 1], C['--ax-z'], 1.4);
+    b.visible = false; sc.add(b);
+
+    this.sat = new THREE.Group(); sc.add(this.sat);
+    this.units = []; this.ex = 0; this.exTarget = 0; this.exT = performance.now();
+    const attach = () => {
+      if (tejo.scene) {
+        const inst = tejo.scene.clone(); this.sat.add(inst);
+        this.units = tejo.explode.map(e => ({ obj: byPath(inst, e.path), base: e.base, off: e.off })).filter(u => u.obj);
+      }
+      this.setModel(this.model);
+    };
+    if (tejo.scene || tejo.failed) attach(); else tejo.waiters.push(attach);
+
+    this.buildFloor();
+    new ResizeObserver(() => this.resize()).observe(host);
+    this.resize();
+  }
+  buildFloor() {
+    if (this.floor) this.scene.remove(this.floor);
+    const f = this.floor = new THREE.Group();
+    const grid = new THREE.GridHelper(8, 8, C['--line'], C['--line']);
+    grid.rotation.x = Math.PI / 2; grid.position.z = FLOOR_Z; f.add(grid);
+    f.add(new THREE.ArrowHelper(new THREE.Vector3(1, 0, 0), new THREE.Vector3(2.0, 0, FLOOR_Z), 1.6, C['--muted'], 0.3, 0.18));
+    const n = makeLabel('N', C['--muted']); n.position.set(4.0, 0, FLOOR_Z + 0.2); f.add(n);
+    this.scene.add(f);
+  }
+  setModel(m) {
+    this.model = m;
+    const satOk = !!tejo.scene;
+    this.sat.visible = m === 'sat' && satOk;
+    this.board.visible = m === 'board' || !satOk;   // the board stands in until the satellite loads
+  }
+  retheme() { this.edge.material.color.set(C['--a-eskf']); this.buildFloor(); }
+  get exploded() { return this.exTarget === 1; }
+  setExploded(on) { if (!this.units.length || !this.sat.visible) return; this.exTarget = on ? 1 : 0; updateExplodeUi(); }
+  animateExplode() {
+    const now = performance.now(), dt = Math.min(0.1, (now - this.exT) / 1000); this.exT = now;
+    if (this.ex === this.exTarget && !this.exDirty) return;
+    const step = reduceMotion.matches ? 1 : dt / 0.9;   // 0.9 s to open or close
+    this.ex = this.exTarget > this.ex ? Math.min(this.exTarget, this.ex + step) : Math.max(this.exTarget, this.ex - step);
+    const k = ease(this.ex);
+    for (const u of this.units) u.obj.position.copy(u.base).addScaledVector(u.off, k);
+    this.sat.scale.setScalar(1 - 0.36 * k);   // shrink a little so the opened satellite stays in frame
+    this.exDirty = false;
+  }
+  resize() {
+    const w = this.host.clientWidth, h = this.host.clientHeight; if (!w || !h) return;
+    this.renderer.setSize(w, h, false); this.camera.aspect = w / h; this.camera.updateProjectionMatrix();
+  }
+  render(q) {
+    const north = !zero.ref && zero.follow;   // after Set zero, into-the-screen is no longer north
+    this.floor.children.forEach((c, i) => { if (i > 0) c.visible = north; });
+    this.board.quaternion.set(q[1], q[2], q[3], q[0]);
+    this.sat.quaternion.set(q[1], q[2], q[3], q[0]);
+    this.animateExplode();
+    this.renderer.render(this.scene, this.camera);
+  }
+}
+
+let mainView = null;
+const mainModel = { value: 'sat' };
+try { const m = localStorage.getItem('tejo-main-model'); if (m === 'sat' || m === 'board') mainModel.value = m; } catch (e) {}
+$('main-model').value = mainModel.value;
+if (hasGL && window.THREE) {
+  mainView = new View($('stage-main'));
+  mainView.setModel(mainModel.value);
+  loadTejo().then(() => {
+    if (tejo.failed) { $('model-state').textContent = `TejoOne model not shown: ${tejo.failed}.`; $('model-state').className = 'pill bad loading'; return; }
+    if (location.hash === '#inside') { mainView.setExploded(true); mainView.ex = 1; mainView.exDirty = true; mainView.render(shown(current())); }   // a link that opens the page already exploded
+    updateExplodeUi();
+  });
+} else {
+  $('stage-main').innerHTML = '<p class="hint" style="padding:16px">3D needs WebGL, which this browser has turned off. The numbers and traces still work.</p>';
+}
+$('main-model').onchange = e => { mainModel.value = e.target.value; if (mainView) mainView.setModel(e.target.value); try { localStorage.setItem('tejo-main-model', e.target.value); } catch (er) {} updateExplodeUi(); };
+function activeView() { return present.on ? present.view : mainView; }
+function toggleExplode() { const v = activeView(); if (v) v.setExploded(!v.exploded); }
+$('btn-inside').onclick = () => { if (mainView) mainView.setExploded(!mainView.exploded); };
+$('pr-inside').onclick = () => { if (present.view) present.view.setExploded(!present.view.exploded); };
+function updateExplodeUi() {
+  const el = $('model-state');
+  $('btn-inside').hidden = !tejo.scene || mainModel.value !== 'sat';
+  $('btn-inside').textContent = mainView && mainView.exploded ? 'Close up' : 'Look inside';
+  $('pr-inside').hidden = !tejo.scene || present.model !== 'sat';
+  $('pr-inside').textContent = present.view && present.view.exploded ? 'Close up (E)' : 'Look inside (E)';
+  if (!tejo.scene) return;
+  el.hidden = mainModel.value !== 'sat';
+  el.className = 'pill loading';
+  el.textContent = mainView && mainView.exploded ? 'Tap the satellite twice to close it · E' : 'Tap the satellite twice to look inside · E';
+  if (present.on) updateZeroUi();
+}
+
+/* ============ Charts ============ */
+class Chart {
+  constructor(canvas) { this.c = canvas; this.x = canvas.getContext('2d'); new ResizeObserver(() => this.size()).observe(canvas); this.size(); }
+  size() { const d = Math.min(2, window.devicePixelRatio || 1); this.d = d; this.w = this.c.clientWidth; this.h = this.c.clientHeight; this.c.width = Math.max(1, this.w*d); this.c.height = Math.max(1, this.h*d); }
+  draw(series, opt = {}) {
+    const x = this.x, w = this.w, h = this.h; if (!w || !h) return;
+    x.setTransform(this.d, 0, 0, this.d, 0, 0); x.clearRect(0, 0, w, h);
+    let lo = Infinity, hi = -Infinity;
+    for (const s of series) for (let k = 0; k < s.ring.len; k++) { const v = s.ring.at(k); if (v < lo) lo = v; if (v > hi) hi = v; }
+    if (!isFinite(lo)) { lo = -1; hi = 1; }
+    const minSpan = opt.minSpan || 1;
+    if (hi - lo < minSpan) { const m = (hi + lo) / 2; lo = m - minSpan/2; hi = m + minSpan/2; }
+    const pad = (hi - lo) * 0.08; lo -= pad; hi += pad;
+    const rawStep = (hi - lo) / (h > 150 ? 5 : 3), mag = Math.pow(10, Math.floor(Math.log10(rawStep))), nm = rawStep / mag;
+    const step = (nm < 1.5 ? 1 : nm < 3.5 ? 2 : nm < 7.5 ? 5 : 10) * mag;
+    const L = 38, R = 6, T = 6, B = opt.timeAxis ? 18 : 6;
+    const X = k => L + (w - L - R) * (k / (HIST - 1)), Y = v => T + (h - T - B) * (1 - (v - lo) / (hi - lo));
+    x.font = '10px "IBM Plex Mono", Consolas, monospace'; x.textBaseline = 'middle'; x.textAlign = 'right'; x.lineWidth = 1;
+    for (let v = Math.ceil(lo / step) * step; v <= hi; v += step) {
+      const yy = Math.round(Y(v)) + 0.5;
+      x.strokeStyle = C['--line']; x.globalAlpha = Math.abs(v) < step/2 ? 1 : 0.55;
+      x.beginPath(); x.moveTo(L, yy); x.lineTo(w - R, yy); x.stroke(); x.globalAlpha = 1;
+      x.fillStyle = C['--muted']; x.fillText(+v.toFixed(6) + '', L - 5, yy);
+    }
+    if (opt.timeAxis) {
+      x.textAlign = 'center'; x.textBaseline = 'alphabetic'; x.fillStyle = C['--muted'];
+      for (let s = 0; s <= 10; s += 2) x.fillText(s === 10 ? 'now' : `−${10 - s}s`, X((s / 10) * (HIST - 1)), h - 4);
+    }
+    x.save(); x.beginPath(); x.rect(L, 0, w - L - R, h); x.clip();
+    for (const s of series) {
+      const r = s.ring; if (r.len < 2) continue;
+      const off = HIST - r.len;
+      x.strokeStyle = s.color; x.lineWidth = s.width || 1.5; x.lineJoin = 'round';
+      x.beginPath(); let prev = null;
+      for (let k = 0; k < r.len; k++) {
+        const v = r.at(k), px = X(off + k), py = Y(v);
+        if (prev === null || (opt.wrap && Math.abs(v - prev) > 180)) x.moveTo(px, py); else x.lineTo(px, py);
+        prev = v;
+      }
+      x.stroke();
+      if (s.endDot) { x.fillStyle = s.color; x.beginPath(); x.arc(X(HIST - 1), Y(r.last()), 2.8, 0, 7); x.fill(); }
+    }
+    x.restore();
+  }
+}
+const angleChart = new Chart($('angle-chart'));
+const rawCharts = { acc: new Chart($('raw-acc')), gyro: new Chart($('raw-gyro')), mag: new Chart($('raw-mag')) };
+
+/* ============ Magnetometer axis map ============ */
+['x', 'y', 'z'].forEach((ax, i) => {
+  const lab = document.createElement('label'); lab.className = 'row'; lab.style.gap = '6px';
+  lab.innerHTML = `<span class="derived">mag ${ax} =</span><select id="map-${ax}">${MAP_OPTS.map(o => `<option value="${o}">accel ${o}</option>`).join('')}</select>`;
+  $('map-row').appendChild(lab);
+  const sel = lab.querySelector('select'); sel.value = cal.map[i];
+  sel.onchange = () => { cal.map[i] = sel.value; };
+});
+
+/* ============ Tap sensitivity ============ */
+const TAP_MIN = 0.02, TAP_MAX = 1.5;   // g, log scale
+const tapToPos = v => 1000 * Math.log(v / TAP_MIN) / Math.log(TAP_MAX / TAP_MIN);
+const tapFromPos = p => TAP_MIN * Math.pow(TAP_MAX / TAP_MIN, p / 1000);
+$('tap-thr').value = Math.round(tapToPos(tap.thr));
+$('tap-thr-out').textContent = `${tap.thr.toFixed(2)} g`;
+$('tap-thr').addEventListener('input', e => {
+  tap.thr = tapFromPos(+e.target.value);
+  $('tap-thr-out').textContent = `${tap.thr.toFixed(2)} g`;
+  try { localStorage.setItem('tejo-tap-thr', String(tap.thr)); } catch (er) {}
+});
+try {
+  const g = JSON.parse(localStorage.getItem('tejo-tap-gap') || 'null');
+  if (g && g.min >= 0.05 && g.max <= 1.5 && g.max > g.min) { TAP.minGap = g.min; TAP.maxGap = g.max; }
+} catch (e) {}
+function syncGaps(changed) {
+  // keep the longest gap at least 0.1 s above the shortest
+  if (TAP.maxGap < TAP.minGap + 0.1) { if (changed === 'min') TAP.maxGap = Math.min(1.5, TAP.minGap + 0.1); else TAP.minGap = Math.max(0.05, TAP.maxGap - 0.1); }
+  $('tap-min').value = TAP.minGap; $('tap-max').value = TAP.maxGap;
+  $('tap-min-out').textContent = `${TAP.minGap.toFixed(2)} s`; $('tap-max-out').textContent = `${TAP.maxGap.toFixed(2)} s`;
+  try { localStorage.setItem('tejo-tap-gap', JSON.stringify({ min: TAP.minGap, max: TAP.maxGap })); } catch (e) {}
+}
+$('tap-min').addEventListener('input', e => { TAP.minGap = +e.target.value; syncGaps('min'); });
+$('tap-max').addEventListener('input', e => { TAP.maxGap = +e.target.value; syncGaps('max'); });
+syncGaps();
+$('tap-sim').onclick = () => {   // second knock lands in the middle of the allowed window
+  sim.knocks = [sim.t + 0.15, sim.t + 0.15 + (TAP.minGap + TAP.maxGap) / 2];
+};
+
+/* ============ Calibration jobs ============ */
+$('cal-gyro').onclick = () => { cal.gyroJob = { sum: [0, 0, 0], n: 0, target: 300 }; $('cal-gyro').disabled = true; };
+$('cal-gyro-clear').onclick = () => { cal.gyroBias = [0, 0, 0]; showCal(); };
+function finishGyroCal() { const j = cal.gyroJob; cal.gyroBias = j.sum.map(v => v / j.n); cal.gyroJob = null; $('cal-gyro').disabled = false; $('cal-gyro-bar').style.width = '100%'; showCal(); }
+$('cal-mag').onclick = () => { cal.magJob = { min: [Infinity, Infinity, Infinity], max: [-Infinity, -Infinity, -Infinity], n: 0, target: 2000 }; $('cal-mag').disabled = true; };
+$('cal-mag-clear').onclick = () => { cal.magOff = [0, 0, 0]; cal.magScale = [1, 1, 1]; showCal(); };
+function finishMagCal() {
+  const j = cal.magJob; cal.magJob = null; $('cal-mag').disabled = false; $('cal-mag-bar').style.width = '100%';
+  const span = j.max.map((v, i) => v - j.min[i]);
+  if (Math.min(...span) < 30) { $('cal-mag-out').textContent = `Not enough rotation: axis ranges ${span.map(v => v.toFixed(0)).join(' / ')} µT. Turn the satellite through every direction and try again.`; return; }
+  cal.magOff = j.max.map((v, i) => (v + j.min[i]) / 2);
+  const rad = span.map(v => v / 2), avg = (rad[0] + rad[1] + rad[2]) / 3;
+  cal.magScale = rad.map(r => avg / r);
+  showCal();
+}
+function showCal() {
+  $('cal-gyro-out').textContent = `bias x ${cal.gyroBias[0].toFixed(3)} · y ${cal.gyroBias[1].toFixed(3)} · z ${cal.gyroBias[2].toFixed(3)} °/s`;
+  $('cal-mag-out').textContent = `offset ${cal.magOff.map(v => v.toFixed(1)).join(' · ')} µT · scale ${cal.magScale.map(v => v.toFixed(2)).join(' · ')}`;
+}
+$('cal-send').onclick = () => {
+  wifi.send(`CAL ${cal.magOff.map(v => v.toFixed(2)).join(' ')} ${cal.magScale.map(v => v.toFixed(4)).join(' ')} ${cal.map.join(' ')}`);
+  $('cal-send-out').textContent = 'Sent. The ESP32 saved it and restarted its filter.';
+};
+
+/* ============ Toolbar ============ */
+$('use-mag').onchange = e => { P.useMag = e.target.checked; };
+$('btn-pause').onclick = () => { app.paused = !app.paused; $('btn-pause').textContent = app.paused ? 'Resume' : 'Pause'; };
+$('btn-reset').onclick = () => { resetFilter(Q.id()); wifi.send('RESET'); clearZero(); };
+$('pattern').onchange = e => { sim.pattern = e.target.value; sim.t = 0; resetFilter(sim.qTrue(0)); };
+
+/* ---- Set zero, satellite setup and presentation mode ---- */
+const present = { on: false, view: null, wasFull: false, model: 'sat', facing: 'into', graphs: true };
+try {
+  const s = JSON.parse(localStorage.getItem('imu-lab-present') || '{}');
+  if (typeof s.follow === 'boolean') zero.follow = s.follow;
+  if (typeof s.graphs === 'boolean') present.graphs = s.graphs;
+  if (s.model === 'sat' || s.model === 'cube') present.model = 'sat';
+  else if (s.model === 'board') present.model = 'board';
+  if (s.facing === 'audience' || s.facing === 'into') present.facing = s.facing;
+  const c = JSON.parse(localStorage.getItem('imu-lab-cube') || 'null');
+  if (c && Array.isArray(c.mount) && c.mount.length === 4) zero.mount = Q.norm(c.mount);
+} catch (e) {}
+zero.face = present.facing === 'audience' ? FACE_AUDIENCE : 0;
+function savePresentPrefs() {
+  try {
+    localStorage.setItem('imu-lab-present', JSON.stringify({ follow: zero.follow, model: present.model, facing: present.facing, graphs: present.graphs }));
+    localStorage.setItem('imu-lab-cube', JSON.stringify(zero.mount ? { mount: zero.mount } : null));
+  } catch (e) {}
+}
+function updateZeroUi() {
+  $('btn-unzero').hidden = !zero.ref;
+  $('btn-zero').textContent = zero.ref ? 'Zero again' : 'Set zero';
+  $('follow-yaw').checked = zero.follow; $('pr-follow').checked = zero.follow;
+  $('pr-model').value = present.model; $('pr-face').value = present.facing;
+  $('pr-zero').textContent = present.model === 'sat' ? 'Set front (Space)' : 'Set zero (Space)';
+  const pose = present.model === 'sat' ? 'Put the satellite in its normal position, camera face toward the audience,'
+    : 'Hold the board the way you will present it, ESP32 end pointing at the screen,';
+  const inside = present.model === 'sat' && present.view && present.view.exploded;
+  $('pr-hint').textContent = inside ? 'Tap the satellite twice (or press E) to close it up.'
+    : zero.ref ? 'Ready. The model follows the satellite. Tap it twice (or press E) to look inside.' : `${pose} and press Space.`;
+  $('pr-hint').hidden = !$('cube-cal').hidden;
+  $('cc-forget-row').hidden = !zero.mount;
+}
+function setZero() { zero.ref = makeRef(mounted(current())); updateZeroUi(); }
+function clearZero() { zero.ref = null; updateZeroUi(); }
+function setFollow(v) { zero.follow = v; savePresentPrefs(); updateZeroUi(); }
+function setModel(m) { present.model = m; if (present.view) present.view.setModel(m); savePresentPrefs(); updateZeroUi(); updateExplodeUi(); }
+function setFacing(f) { present.facing = f; zero.face = f === 'audience' ? FACE_AUDIENCE : 0; savePresentPrefs(); updateZeroUi(); }
+/* The same graphs card moves into the presentation and back, so it is always on screen. */
+function placeGraphs() {
+  const inPresent = present.on && present.graphs;
+  if (inPresent) $('present-side').appendChild($('traces')); else $('side').prepend($('traces'));
+  $('present-side').hidden = !inPresent;
+  $('pr-graphs').checked = present.graphs;
+  if (present.view) requestAnimationFrame(() => present.view.resize());
+}
+function setGraphs(v) { present.graphs = v; savePresentPrefs(); placeGraphs(); }
+$('pr-graphs').onchange = e => setGraphs(e.target.checked);
+function openPresent() {
+  $('present').hidden = false; present.on = true;
+  document.body.style.overflow = 'hidden';
+  placeGraphs();
+  if (hasGL && window.THREE) {
+    if (!present.view) present.view = new View($('present-stage'));
+    present.view.setModel(present.model);
+    present.view.resize();
+  }
+  updateZeroUi(); updateExplodeUi();
+  present.wasFull = false;
+  const el = $('present');
+  // Full screen: standard API, or the webkit one on iPad. iPhone Safari has neither; the
+  // presentation still fills the window (and the whole screen from the home screen icon).
+  const fs = el.requestFullscreen || el.webkitRequestFullscreen;
+  if (fs) { try { const p = fs.call(el); if (p && p.then) p.then(() => { present.wasFull = true; }).catch(() => {}); else present.wasFull = true; } catch (e) {} }
+  keepAwake(true);
+  $('pr-zero').focus();
+}
+const fsElement = () => document.fullscreenElement || document.webkitFullscreenElement;
+function closePresent() {
+  $('present').hidden = true; present.on = false; cubeCal.cap = null;
+  placeGraphs();
+  document.body.style.overflow = '';
+  if (fsElement()) { try { (document.exitFullscreen || document.webkitExitFullscreen).call(document); } catch (e) {} }
+  keepAwake(false);
+  $('btn-present').focus();
+}
+/* Keep the screen on while presenting (tablets and laptops dim after a minute otherwise). */
+let wakeLock = null;
+async function keepAwake(on) {
+  try {
+    if (on && 'wakeLock' in navigator && !wakeLock) { wakeLock = await navigator.wakeLock.request('screen'); wakeLock.addEventListener('release', () => { wakeLock = null; }); }
+    if (!on && wakeLock) { await wakeLock.release(); wakeLock = null; }
+  } catch (e) { wakeLock = null; }
+}
+document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible' && present.on) keepAwake(true); });
+
+const CUBE_STEPS = [
+  { key: 'rest', title: 'Normal position', text: 'Put the satellite where you will present it: camera face toward the audience, top panel up. Let go of it.' },
+  { key: 'fwd', title: 'Lean forward', text: 'Tip the camera face down by about 30°, toward the audience, and hold it still.' },
+  { key: 'back', title: 'Lean back', text: 'Tip the camera face up by about 30° and hold it still.' },
+  { key: 'left', title: 'Lean left', text: 'Stand behind the satellite, looking the way the camera points. Tip it to your left, about 30°, and hold it still.' },
+  { key: 'right', title: 'Lean right', text: 'Tip it to your right, about 30°, and hold it still.' },
+];
+function cubeReset() { Object.assign(cubeCal, { cap: null, step: 0, u: {}, qRest: null, result: null, msg: '' }); }
+function cubeCapture(s) {
+  const c = cubeCal.cap, now = performance.now();
+  c.buf.push({ t: now, a: s.acc.slice(), g: s.gyro.slice() });
+  while (c.buf.length && now - c.buf[0].t > 1000) c.buf.shift();
+  if (now - c.t0 < 1000 || c.buf.length < 20) return;
+  const n = c.buf.length;
+  const mean = k => [0, 1, 2].map(i => c.buf.reduce((acc, b) => acc + b[k][i], 0) / n);
+  const spread = (k, m) => Math.max(...[0, 1, 2].map(i => Math.sqrt(c.buf.reduce((acc, b) => acc + (b[k][i] - m[i]) ** 2, 0) / n)));
+  const ma = mean('a'), mg = mean('g');
+  if (spread('a', ma) < 0.02 && spread('g', mg) < 3) finishCapture(v3.norm(ma));
+  else if (now - c.t0 > 8000) { cubeCal.cap = null; cubeCal.msg = 'No steady reading. Hold the satellite still, or let go of it, and press Capture again.'; renderCubeCal(); }
+  else if (!c.told) { c.told = true; cubeCal.msg = 'Hold still…'; renderCubeCal(); }
+}
+function finishCapture(u) {
+  const st = CUBE_STEPS[cubeCal.step];
+  cubeCal.cap = null;
+  if (st.key === 'rest') { cubeCal.qRest = current().slice(); cubeCal.msg = 'Got the normal position.'; }
+  else {
+    const a = v3.angle(u, cubeCal.u.rest);
+    if (a < 12) { cubeCal.msg = `That is only ${a.toFixed(0)}° from the normal position. Tip it further, about 30°, and capture again.`; renderCubeCal(); return; }
+    if (a > 75) { cubeCal.msg = `${a.toFixed(0)}° is more than needed. About 30° is enough. Capture again.`; renderCubeCal(); return; }
+    cubeCal.msg = `Got it: tipped ${a.toFixed(0)}°.`;
+  }
+  cubeCal.u[st.key] = u;
+  cubeCal.step++;
+  if (cubeCal.step === CUBE_STEPS.length) { cubeCal.result = solveCube(cubeCal.u); cubeCal.msg = ''; }
+  renderCubeCal();
+}
+function renderCubeCal() {
+  const r = cubeCal.result;
+  $('cc-steps').innerHTML = CUBE_STEPS.map((st, i) => {
+    const cls = i < cubeCal.step ? 'done' : (i === cubeCal.step && !r ? 'now' : '');
+    return `<li class="${cls}"><b>${st.title}</b>${i < cubeCal.step ? ' ✓' : ''}${cls === 'now' ? `<br><span>${st.text}</span>` : ''}</li>`;
+  }).join('');
+  let m = cubeCal.msg ? `<p>${cubeCal.msg}</p>` : '';
+  if (r) {
+    m += `<p><b>How the IMU sits in the satellite</b><br>camera face (+X) = ${nearestAxis(r.X)}<br>+Y = ${nearestAxis(r.Y)}<br>top (+Z) = ${nearestAxis(r.Z)}</p>`;
+    m += r.warn.length ? r.warn.map(w => `<p class="warn">${w}</p>`).join('')
+      : `<p class="good">All five steps agree: left/right within ${r.agree.toFixed(0)}° of forward/back.</p>`;
+    m += '<p>Put the satellite back in its normal position before you press the button.</p>';
+  }
+  $('cc-msg').innerHTML = m;
+  $('cc-go').textContent = r ? 'Use this setup' : cubeCal.cap ? 'Measuring…' : `Capture step ${cubeCal.step + 1}`;
+  $('cc-go').disabled = !!cubeCal.cap;
+  $('cc-redo').hidden = cubeCal.step === 0;
+}
+function openCubeCal() { cubeReset(); $('cube-cal').hidden = false; renderCubeCal(); updateZeroUi(); $('cc-go').focus(); }
+function closeCubeCal() { cubeCal.cap = null; $('cube-cal').hidden = true; updateZeroUi(); $('pr-zero').focus(); }
+function cubeGo() {
+  if (cubeCal.result) {
+    zero.mount = cubeCal.result.q;
+    zero.ref = makeRef(mounted(cubeCal.qRest));
+    setModel('sat'); setFacing('audience');
+    closeCubeCal();
+    return;
+  }
+  if (!cubeCal.cap) { cubeCal.cap = { t0: performance.now(), buf: [], told: false }; cubeCal.msg = 'Measuring…'; renderCubeCal(); }
+}
+$('pr-setup').onclick = openCubeCal;
+$('cc-go').onclick = cubeGo;
+$('cc-redo').onclick = () => { cubeReset(); renderCubeCal(); };
+$('cc-close').onclick = closeCubeCal;
+$('cc-forget').onclick = () => { zero.mount = null; zero.ref = null; savePresentPrefs(); closeCubeCal(); };
+
+$('btn-zero').onclick = setZero;
+$('btn-unzero').onclick = clearZero;
+$('follow-yaw').onchange = e => setFollow(e.target.checked);
+$('pr-follow').onchange = e => setFollow(e.target.checked);
+$('pr-model').onchange = e => setModel(e.target.value);
+$('pr-face').onchange = e => setFacing(e.target.value);
+$('btn-present').onclick = openPresent;
+$('pr-zero').onclick = setZero;
+$('pr-exit').onclick = closePresent;
+['fullscreenchange', 'webkitfullscreenchange'].forEach(ev => document.addEventListener(ev, () => { if (!fsElement() && present.on && present.wasFull) closePresent(); }));
+document.addEventListener('keydown', e => {
+  const t = e.target;
+  if (e.ctrlKey || e.metaKey || e.altKey || (t && (t.tagName === 'SELECT' || t.tagName === 'TEXTAREA' || t.tagName === 'SUMMARY' || (t.tagName === 'INPUT' && t.type !== 'checkbox')))) return;
+  const k = e.key.toLowerCase();
+  if (present.on) {
+    const setup = !$('cube-cal').hidden;
+    if (k === ' ' || (k === 'z' && !setup)) { e.preventDefault(); setup ? cubeGo() : setZero(); }
+    else if (k === 'f') setFollow(!zero.follow);
+    else if (k === 'g') setGraphs(!present.graphs);
+    else if (k === 'e') toggleExplode();
+    else if (k === 'escape') setup ? closeCubeCal() : closePresent();
+  } else if (k === 'z') setZero();
+  else if (k === 'e') toggleExplode();
+});
+updateZeroUi();
+
+/* ============ Sources ============ */
+$('src-sim').onclick = () => setSource('sim');
+$('src-wifi').onclick = () => setSource('wifi');
+$('btn-connect').onclick = () => { wifi.ws ? wifi.disconnect() : wifi.connect(); };
+$('wifi-host').addEventListener('keydown', e => { if (e.key === 'Enter' && !wifi.ws) wifi.connect(); });
+function setSource(src) {
+  if (src === app.source) return;
+  clearZero();
+  if (app.source === 'wifi') wifi.disconnect();
+  app.source = src;
+  ['sim', 'wifi'].forEach(k => $('src-' + k).setAttribute('aria-pressed', src === k ? 'true' : 'false'));
+  $('btn-connect').hidden = src === 'sim';
+  $('btn-connect').textContent = 'Connect ESP32';
+  $('wifi-host').hidden = src !== 'wifi';
+  $('btn-pause').hidden = src !== 'sim';
+  $('pattern').hidden = src !== 'sim';
+  $('tap-sim').hidden = src !== 'sim';
+  tap.lp = null; tap.first = null; tap.above = 0;
+  $('serial-blocked').hidden = true;
+  $('t-board').hidden = src !== 'wifi';
+  app.board = null; app.clipG = app.clipA = 0;
+  if (src === 'sim') resetFilter(sim.qTrue(sim.t)); else { resetFilter(Q.id()); app.lastTms = null; }
+  clearHistory(); updateSendButton(); setStatus();
+}
+function updateSendButton() {
+  const ok = app.source === 'wifi' && wifi.opened;
+  $('cal-send').disabled = !ok;
+  if (!ok) $('cal-send-out').textContent = 'Connect over Wi-Fi first';
+  else if ($('cal-send-out').textContent.startsWith('Connect')) $('cal-send-out').textContent = '';
+}
+function setStatus(text, kind) {
+  const s = $('status');
+  if (!text) {
+    if (app.source === 'sim') { text = app.paused ? 'Simulation paused' : 'Simulating · 100 Hz'; kind = app.paused ? 'warn' : 'good'; }
+    else if (app.source === 'wifi' && wifi.opened) { text = `Wi-Fi · ${app.rate.toFixed(0)} Hz` + (app.board ? ` · fusion ${app.board.hz} Hz` : ''); kind = app.rate > 80 ? 'good' : 'warn'; }
+    else if (app.source === 'wifi' && wifi.ws) { text = 'Connecting…'; kind = 'warn'; }
+    else { text = 'Not connected'; kind = ''; }
+  }
+  s.textContent = text; s.className = 'pill ' + (kind || '');
+}
+
+/* ============ Wi-Fi (WebSocket, 120-byte "IQ" frames) ============ */
+const wifi = {
+  ws: null, opened: false, host: '',
+  connect() {
+    let host = $('wifi-host').value.trim() || 'imu-lab.local';
+    host = host.replace(/^(wss?|https?):\/\//, '').replace(/\/.*$/, '');
+    this.host = host;
+    let ws;
+    try { ws = new WebSocket(`ws://${host}/ws`); }
+    catch (e) { $('serial-blocked').hidden = false; setStatus('Network access blocked here', 'bad'); return; }
+    this.ws = ws; this.opened = false;
+    ws.binaryType = 'arraybuffer';
+    $('btn-connect').textContent = 'Disconnect'; setStatus();
+    ws.onopen = () => { this.opened = true; app.lastTms = null; resetFilter(Q.id()); clearHistory(); updateSendButton(); setStatus(); };
+    ws.onmessage = e => { if (e.data instanceof ArrayBuffer) this.packet(e.data); };
+    ws.onclose = () => {
+      const was = this.opened;
+      if (this.ws === ws) { this.ws = null; this.opened = false; }
+      $('btn-connect').textContent = 'Connect ESP32'; updateSendButton();
+      if (was) setStatus();
+      else if (location.protocol === 'https:') { $('serial-blocked').hidden = false; setStatus('Network access blocked here', 'bad'); }
+      else setStatus(`Can't reach ${host}`, 'bad');
+    };
+  },
+  disconnect() { const ws = this.ws; this.ws = null; this.opened = false; if (ws) ws.close(); $('btn-connect').textContent = 'Connect ESP32'; updateSendButton(); setStatus(); },
+  send(t) { if (this.ws && this.opened) this.ws.send(t); },
+  packet(buf) {
+    if (buf.byteLength < 120) return;
+    const d = new DataView(buf);
+    if (d.getUint8(0) !== 73 || d.getUint8(1) !== 81) return;   // "IQ"
+    const f = (o, n) => Array.from({ length: n }, (_, i) => d.getFloat32(o + 4 * i, true));
+    const t = d.getUint32(4, true);
+    let dt = 0.01;
+    if (app.lastTms !== null) { dt = (t - app.lastTms) / 1000; if (!(dt > 0.0005 && dt < 0.2)) dt = 0.01; }
+    app.lastTms = t;
+    const flags = d.getUint8(3);
+    if (flags & 8) app.clipG++;
+    if (flags & 16) app.clipA++;
+    app.board = { hz: d.getUint16(8, true), usMax: d.getUint16(10, true), accUsed: !!(flags & 1), magUsed: !!(flags & 2), magPresent: !!(flags & 4),
+      temp: d.getFloat32(48, true), biasE: f(84, 3), sigma: f(108, 3) };
+    if (app.source !== 'wifi') return;
+    processSample({ dt, acc: f(12, 3), gyro: f(24, 3), mag: f(36, 3), boardQ: Q.norm(f(52, 4)) });
+  },
+};
+
+/* ============ Readouts ============ */
+const fmtA = v => (v >= 0 ? '+' : '−') + Math.abs(v).toFixed(1).padStart(5, ' ');
+const f2 = a => a.map(v => v.toFixed(2)).join(' · ');
+function chip(text, kind) { return `<span class="pill ${kind}">${text}</span>`; }
+function updateText() {
+  const q = current(), e = Q.toEuler(shown(q, false)).map(v => v * R2D);
+  $('a-r').textContent = fmtA(e[0]); $('a-p').textContent = fmtA(e[1]); $('a-y').textContent = fmtA(e[2]);
+  if (present.on) { $('pr-r').textContent = fmtA(e[0]); $('pr-p').textContent = fmtA(e[1]); $('pr-y').textContent = fmtA(e[2]); }
+
+  const ob = onBoard() && app.board;
+  $('est-src').textContent = ob ? 'Running on the ESP32' : app.source === 'sim' ? 'Browser · simulated motion' : 'Waiting for the ESP32';
+  const sigma = ob ? app.board.sigma : eskf.sigmaDeg();
+  const bias = ob ? app.board.biasE : eskf.bg.map(v => v * R2D);
+  const grav = ob ? app.board.accUsed : eskf.accUsed;
+  const head = ob ? (!app.board.magPresent ? 'none' : app.board.magUsed) : (P.useMag ? eskf.magUsed : 'off');
+  const chips = [];
+  if (!ob) chips.push(eskf.still ? chip('still', 'good') : chip('moving', ''));
+  chips.push(grav ? chip('gravity used', 'good') : chip('gravity gated', 'warn'));
+  chips.push(head === 'off' ? chip('compass off', '') : head === 'none' ? chip('no magnetometer', 'bad') : head ? chip('heading used', 'good') : chip('heading skipped', 'warn'));
+  if (tap.flash && performance.now() - tap.flashT < 1200) chips.push(chip(tap.flash, tap.flash === 'double tap' ? 'good' : 'warn'));
+  $('chips').innerHTML = chips.join('');
+  $('tap-last').textContent = tap.lastPeak ? `Last jolt: ${tap.lastPeak.toFixed(2)} g (counts as a tap above ${tap.thr.toFixed(2)} g)` : 'Last jolt: —';
+  $('t-sigma').textContent = `${f2(sigma)} °`;
+  $('t-bias').textContent = `${f2(bias)} °/s`;
+  $('t-quat').textContent = q.map(v => v.toFixed(3)).join(' ');
+  $('t-rate').textContent = app.source === 'sim' || (app.source === 'wifi' && wifi.opened) ? `${app.rate.toFixed(0)} Hz` : '—';
+  $('t-acc').textContent = app.rateCount || app.rate ? `${app.accNorm.toFixed(3)} g` : '—';
+  if (dipRing.len > 20) {
+    let s = 0, s2 = 0; for (let i = 0; i < dipRing.len; i++) { const v = dipRing.at(i); s += v; s2 += v*v; }
+    const m = s / dipRing.len, sd = Math.sqrt(Math.max(0, s2 / dipRing.len - m*m));
+    $('dip-out').textContent = `${m.toFixed(1)}° ± ${sd.toFixed(1)}°`;
+    let f = 0; for (let i = 0; i < fieldRing.len; i++) f += fieldRing.at(i);
+    $('field-out').textContent = `${(f / fieldRing.len).toFixed(1)} µT`;
+  } else { $('dip-out').textContent = '—'; $('field-out').textContent = '—'; }
+  if (app.source === 'wifi' && app.board) {
+    $('b-loop').textContent = `${app.board.hz} Hz · slowest ${app.board.usMax} µs`;
+    $('b-temp').textContent = `${app.board.temp.toFixed(1)} °C`;
+    $('b-clip').textContent = `${app.clipG} gyro · ${app.clipA} accel packets`;
+  }
+  if (cal.gyroJob) $('cal-gyro-bar').style.width = (100 * cal.gyroJob.n / cal.gyroJob.target) + '%';
+  if (cal.magJob) $('cal-mag-bar').style.width = (100 * cal.magJob.n / cal.magJob.target) + '%';
+  setStatus();
+}
+
+/* ============ Theme changes ============ */
+function retheme() { readTokens(); if (mainView) mainView.retheme(); if (present.view) present.view.retheme(); }
+matchMedia('(prefers-color-scheme: dark)').addEventListener('change', retheme);
+new MutationObserver(retheme).observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme', 'class'] });
+
+/* ============ Main loop ============ */
+let labVisible = true;
+new IntersectionObserver(e => { labVisible = e[0].isIntersecting; }).observe($('lab'));
+let last = performance.now(), acc = 0, textT = 0;
+resetFilter(sim.qTrue(0));
+function frame(now) {
+  let el = (now - last) / 1000; last = now; if (el > 0.25) el = 0.25;
+  if (app.source === 'sim' && !app.paused) {
+    acc += el; let n = 0;
+    while (acc >= SIM_DT && n < 25) { processSample(sim.step(SIM_DT)); acc -= SIM_DT; n++; }
+    if (n === 25) acc = 0;
+  }
+  if (now - app.rateT > 1000) { app.rate = app.rateCount * 1000 / (now - app.rateT); app.rateCount = 0; app.rateT = now; }
+  const q = shown(current());
+  if (present.on) { if (present.view) present.view.render(q); }
+  else if (labVisible && mainView) mainView.render(q);
+  if (present.on ? present.graphs : labVisible) {
+    const axc = [C['--ax-x'], C['--ax-y'], C['--ax-z']];
+    angleChart.draw(att.map((r, i) => ({ ring: r, color: axc[i], endDot: true })), { wrap: true, minSpan: 10, timeAxis: true });
+    rawCharts.acc.draw(raw.acc.map((r, i) => ({ ring: r, color: axc[i], width: 1.2 })), { minSpan: 0.5 });
+    rawCharts.gyro.draw(raw.gyro.map((r, i) => ({ ring: r, color: axc[i], width: 1.2 })), { minSpan: 5 });
+    rawCharts.mag.draw(raw.mag.map((r, i) => ({ ring: r, color: axc[i], width: 1.2 })), { minSpan: 20 });
+  }
+  if (now - textT > 100) { updateText(); textT = now; }
+  requestAnimationFrame(frame);
+}
+requestAnimationFrame(frame);
+})();
+</script>

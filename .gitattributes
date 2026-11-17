@@ -1,0 +1,9 @@
+* text=auto
+*.sh   text eol=lf
+*.py   text eol=lf
+*.bat  text eol=crlf
+*.glb  binary
+*.png  binary
+# packed model and minified library: one huge line each, no useful diffs
+tejo_model.js   -diff linguist-generated
+lib/*.js        -diff linguist-vendored

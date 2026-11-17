@@ -1,0 +1,7 @@
+# local backup of the old IMU Fusion Lab page
+imu_fusion_lab_BEFORE_show_version.html
+__pycache__/
+*.pyc
+*.blend1
+.DS_Store
+Thumbs.db
