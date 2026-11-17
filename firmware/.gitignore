@@ -1,0 +1,46 @@
+# ---- ESP-IDF build output (recreated by idf.py build) ----
+build/
+*.bin
+*.elf
+*.map
+flasher_args.json
+compile_commands.json
+CMakeCache.txt
+CMakeFiles/
+cmake_install.cmake
+
+# Your local configuration. Project settings belong in sdkconfig.defaults; sdkconfig can
+# also hold your home Wi-Fi name/password and admin password from menuconfig, so it
+# never goes into git.
+sdkconfig
+sdkconfig.old
+
+# Downloaded by the component manager on the first build (versions pinned in dependencies.lock)
+managed_components/
+
+# Machine-specific editor settings (ESP-IDF path, serial port, clangd path)
+.vscode/settings.json
+.clangd/
+.ccls-cache/
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+venv/
+
+# Allan variance recordings: raw data is large (tens of MB per hour); the small
+# *_adev.csv and *_report.txt results are kept
+tools/allan/logs/*.csv
+!tools/allan/logs/*_adev.csv
+tools/allan/logs/*.log
+tools/allan/logs/STOP
+
+# OS / editor clutter
+.DS_Store
+Thumbs.db
+Desktop.ini
+*~
+*.swp
+*.bak
+*.tmp

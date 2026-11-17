@@ -1,0 +1,18 @@
+Recording: 2.00 h, 719891 samples, tau0 10.0 ms, gaps 0.1 s total
+Temperature: 26.00 to 26.50 C (drift -0.30 C)
+
+GYRO            white noise (ARW)            bias instability            rate random walk
+  gx   0.0032 deg/s/sqrt(Hz) = 0.194 deg/sqrt(h)     3.28 deg/h at tau    800 s   not reached (record longer)
+  gy   0.0033 deg/s/sqrt(Hz) = 0.195 deg/sqrt(h)     5.99 deg/h at tau    198 s   1.27e-04 deg/s/sqrt(s)
+  gz   0.0030 deg/s/sqrt(Hz) = 0.181 deg/sqrt(h)     8.27 deg/h at tau    800 s   not reached (record longer)
+
+ACCEL           white noise (VRW)            bias instability
+  ax      77.1 ug/sqrt(Hz)                   26.4 ug at tau    800 s
+  ay      77.0 ug/sqrt(Hz)                   24.7 ug at tau     93 s
+  az      73.2 ug/sqrt(Hz)                   41.3 ug at tau    290 s
+
+Suggested ESKF settings (measured values are for a perfectly still board;
+real use adds vibration, so the filter uses them inflated):
+  measured   sigma gyro      0.0033 deg/s/sqrt(Hz)    sigma bias walk 1.27e-04 deg/s/sqrt(s)
+  suggested  gyro_noise      0.0098 deg/s/sqrt(Hz)    bias_walk       3.81e-04 deg/s/sqrt(s)   (x3)
+  currently  gyro_noise      0.0500 deg/s/sqrt(Hz)    bias_walk       5.00e-03 deg/s/sqrt(s)

@@ -1,0 +1,370 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>IMU Lab admin</title>
+<style>
+:root {
+  --bg: #f4f5f7; --card: #ffffff; --text: #1b1f24; --muted: #5f6b7a; --line: #dde1e6;
+  --accent: #2563eb; --accent-text: #ffffff; --ok: #15803d; --warn: #b45309; --bad: #b91c1c;
+  --sky: #7cb7e8; --ground: #a8835a; --code: #eef1f4;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #111418; --card: #1a1f25; --text: #e6e9ed; --muted: #97a3b1; --line: #2c333c;
+    --accent: #5b8def; --accent-text: #0b1020; --ok: #4ade80; --warn: #fbbf24; --bad: #f87171;
+    --sky: #2f5f8a; --ground: #6b5236; --code: #22282f;
+  }
+}
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--bg); color: var(--text); font: 15px/1.45 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+header { padding: 16px; display: flex; flex-wrap: wrap; gap: 8px 16px; align-items: baseline; max-width: 1180px; margin: 0 auto; }
+header h1 { font-size: 1.25rem; margin: 0; }
+header .sub { color: var(--muted); font-size: 0.9rem; }
+#conn { margin-left: auto; font-size: 0.85rem; }
+main { display: grid; gap: 16px; padding: 0 16px 32px; max-width: 1180px; margin: 0 auto; grid-template-columns: repeat(auto-fit, minmax(340px, 1fr)); }
+section { background: var(--card); border: 1px solid var(--line); border-radius: 10px; padding: 16px; min-width: 0; }
+section.wide { grid-column: 1 / -1; }
+h2 { font-size: 1rem; margin: 0 0 12px; }
+h3 { font-size: 0.9rem; margin: 16px 0 8px; color: var(--muted); font-weight: 600; }
+dl { display: grid; grid-template-columns: max-content 1fr; gap: 4px 12px; margin: 0; }
+dt { color: var(--muted); }
+dd { margin: 0; overflow-wrap: anywhere; }
+.mono, code { font-family: ui-monospace, "Cascadia Mono", Consolas, monospace; font-size: 0.9em; }
+code { background: var(--code); padding: 1px 5px; border-radius: 4px; }
+.big { font-size: 1.6rem; font-weight: 650; font-variant-numeric: tabular-nums; }
+.pill { display: inline-block; padding: 1px 8px; border-radius: 999px; font-size: 0.8rem; border: 1px solid currentColor; }
+.ok { color: var(--ok); } .warn { color: var(--warn); } .bad { color: var(--bad); } .muted { color: var(--muted); }
+button, .btn { font: inherit; padding: 6px 12px; border-radius: 7px; border: 1px solid var(--line); background: var(--card); color: var(--text); cursor: pointer; }
+button.primary { background: var(--accent); color: var(--accent-text); border-color: var(--accent); }
+button.danger { color: var(--bad); border-color: var(--bad); }
+button:disabled { opacity: 0.5; cursor: default; }
+button:focus-visible, input:focus-visible, summary:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+input[type=text], input[type=password] { font: inherit; padding: 6px 8px; border-radius: 7px; border: 1px solid var(--line); background: var(--bg); color: var(--text); width: 100%; }
+.row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.row > input { flex: 1 1 160px; width: auto; }
+table { border-collapse: collapse; width: 100%; font-size: 0.88rem; }
+th, td { text-align: left; padding: 6px 8px; border-bottom: 1px solid var(--line); vertical-align: top; }
+th { color: var(--muted); font-weight: 600; }
+.tbl { overflow-x: auto; }
+.where { display: grid; gap: 12px; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); }
+.where > div { border: 1px solid var(--line); border-radius: 8px; padding: 12px; }
+.where a { font-size: 1.15rem; font-weight: 650; color: var(--accent); }
+.att { display: flex; gap: 16px; align-items: center; flex-wrap: wrap; }
+.angles { display: grid; grid-template-columns: repeat(3, auto); gap: 4px 18px; }
+.angles span { color: var(--muted); font-size: 0.8rem; }
+pre#log { background: var(--code); border-radius: 8px; padding: 10px; max-height: 340px; overflow: auto; font-size: 0.78rem; white-space: pre-wrap; margin: 8px 0 0; }
+progress { width: 100%; }
+.note { color: var(--muted); font-size: 0.85rem; margin: 8px 0 0; }
+#msg { position: fixed; left: 50%; bottom: 16px; transform: translateX(-50%); background: var(--text); color: var(--bg); padding: 8px 14px; border-radius: 8px; font-size: 0.9rem; max-width: calc(100% - 32px); display: none; }
+.netlist button { padding: 3px 10px; }
+</style>
+</head>
+<body>
+<header>
+  <h1>IMU Lab admin</h1>
+  <span class="sub" id="fwline">connecting…</span>
+  <span id="conn" class="pill muted">–</span>
+</header>
+<main>
+
+<section class="wide" aria-labelledby="h-where">
+  <h2 id="h-where">How to reach this board</h2>
+  <div class="where">
+    <div>
+      <div class="muted">Its own Wi-Fi, always on</div>
+      <div class="big" id="ap-ssid">IMU-Lab</div>
+      <a href="http://192.168.4.1/">http://192.168.4.1/</a>
+      <p class="note">Join this network from any phone or laptop and open the address. Channel <span id="ap-ch">–</span>, <span id="ap-n">0</span> device(s) connected.</p>
+    </div>
+    <div>
+      <div class="muted">Other network <span id="sta-state" class="pill muted">–</span></div>
+      <div class="big" id="sta-ssid">–</div>
+      <div id="sta-links"></div>
+      <dl id="sta-dl" style="margin-top:8px"></dl>
+    </div>
+  </div>
+</section>
+
+<section aria-labelledby="h-att">
+  <h2 id="h-att">Orientation (on-board ESKF)</h2>
+  <div class="att">
+    <svg id="horizon" width="120" height="120" viewBox="-60 -60 120 120" role="img" aria-label="Attitude indicator">
+      <defs><clipPath id="hz-clip"><circle r="58"/></clipPath></defs>
+      <g clip-path="url(#hz-clip)">
+        <g id="hz-g">
+          <rect x="-200" y="-400" width="400" height="400" fill="var(--sky)"/>
+          <rect x="-200" y="0" width="400" height="400" fill="var(--ground)"/>
+          <line x1="-200" y1="0" x2="200" y2="0" stroke="var(--card)" stroke-width="1.5"/>
+        </g>
+      </g>
+      <circle r="58" fill="none" stroke="var(--line)" stroke-width="2"/>
+      <path d="M-28 0 H-8 L0 6 L8 0 H28" fill="none" stroke="var(--text)" stroke-width="2.5"/>
+    </svg>
+    <div class="angles">
+      <span>Roll</span><span>Pitch</span><span>Yaw</span>
+      <div class="big" id="roll">–</div><div class="big" id="pitch">–</div><div class="big" id="yaw">–</div>
+    </div>
+  </div>
+  <dl style="margin-top:12px">
+    <dt>Uncertainty</dt><dd id="sigma">–</dd>
+    <dt>Gyro bias</dt><dd id="bias">–</dd>
+    <dt>Corrections</dt><dd id="used">–</dd>
+    <dt>Fusion loop</dt><dd id="hz">–</dd>
+    <dt>Chip temperature</dt><dd id="temp">–</dd>
+    <dt>Full-scale hits</dt><dd id="clip">–</dd>
+  </dl>
+</section>
+
+<section aria-labelledby="h-cmd">
+  <h2 id="h-cmd">Commands</h2>
+  <div class="row">
+    <button id="c-reset">Reset filters</button>
+    <button id="c-clearcal" class="danger">Clear magnetometer calibration</button>
+    <button id="c-restart" class="danger">Restart ESP32</button>
+  </div>
+  <p class="note">Reset filters restarts both on-board filters from the current accelerometer and magnetometer readings. Magnetometer calibration: <span id="calstate">–</span>.</p>
+  <h3>Devices on IMU-Lab</h3>
+  <div class="tbl"><table><thead><tr><th>Device (MAC)</th><th>Signal</th></tr></thead><tbody id="ap-clients"><tr><td colspan="2" class="muted">–</td></tr></tbody></table></div>
+  <p class="note"><span id="streams">0</span> lab stream(s) open.</p>
+</section>
+
+<section class="wide" aria-labelledby="h-wifi">
+  <h2 id="h-wifi">Wi-Fi networks</h2>
+  <p class="note" style="margin-top:0">The board joins the strongest saved network in range by itself. The IMU-Lab network stays on either way. Looking for networks briefly silences IMU-Lab, so the board only does it on its own while nobody is connected to IMU-Lab; otherwise use the button below. When it joins a network on another channel, IMU-Lab moves to that channel too, so devices on IMU-Lab drop off for a few seconds and reconnect.</p>
+  <h3>Saved networks</h3>
+  <div class="row netlist" id="known"><span class="muted">–</span></div>
+  <div class="row" style="margin-top:8px"><button id="search">Look for saved networks now</button></div>
+  <h3>Add a network</h3>
+  <div class="row"><button id="scan" class="primary">Scan</button><span class="note" id="scan-note" style="margin:0">Scanning pauses the data stream for about 2 seconds.</span></div>
+  <div class="tbl" style="margin-top:8px"><table><thead><tr><th>Network</th><th>Signal</th><th>Channel</th><th></th></tr></thead><tbody id="scan-list"><tr><td colspan="4" class="muted">Press Scan, or type a name below (hidden networks too).</td></tr></tbody></table></div>
+  <form class="row" id="join" style="margin-top:12px" autocomplete="off">
+    <input type="text" id="j-ssid" placeholder="Network name" aria-label="Network name" maxlength="32">
+    <input type="password" id="j-pass" placeholder="Password (empty if open)" aria-label="Password" maxlength="63">
+    <button class="primary" type="submit">Join and save</button>
+  </form>
+  <h3>Connection history <span class="muted" style="font-weight:400">(kept across power-offs)</span> <button id="clearhist" style="margin-left:8px;font-size:0.8rem;padding:2px 8px">Clear</button></h3>
+  <div class="tbl"><table><thead><tr><th>When</th><th>What</th><th>Network</th><th>IP given</th><th>Gateway</th><th>Signal</th></tr></thead><tbody id="hist"><tr><td colspan="6" class="muted">–</td></tr></tbody></table></div>
+</section>
+
+<section aria-labelledby="h-fw">
+  <h2 id="h-fw">Firmware</h2>
+  <dl id="fw-dl"></dl>
+  <h3>Update</h3>
+  <div class="row"><input type="file" id="fw-file" accept=".bin" aria-label="Firmware file"><button id="fw-go" class="primary" disabled>Upload</button></div>
+  <progress id="fw-prog" max="100" value="0" hidden></progress>
+  <p class="note">Choose <code>build\blink.bin</code> after <code>idf.py build</code>. The board checks the file, restarts into it, and goes back to the old firmware by itself if the new one fails within 10 s.</p>
+</section>
+
+<section aria-labelledby="h-log">
+  <h2 id="h-log">Log</h2>
+  <div class="row"><label><input type="checkbox" id="log-auto" checked> Refresh every 3 s</label><button id="log-now">Refresh</button></div>
+  <pre id="log" aria-live="off">–</pre>
+</section>
+
+</main>
+<div id="msg" role="status" aria-live="polite"></div>
+<script>
+'use strict';
+const $ = id => document.getElementById(id);
+const esc = s => String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const REASONS = { 2: 'authentication expired', 3: 'the network sent it away', 4: 'inactive too long', 8: 'left', 15: 'wrong password?', 200: 'signal lost',
+  201: 'network not found', 202: 'authentication failed (wrong password?)', 203: 'association failed', 204: 'wrong password?', 205: 'connection failed',
+  210: 'no compatible security', 211: 'security below threshold' };
+const reasonText = r => r ? (REASONS[r] || 'reason ' + r) : '';
+let last = null, wifiInfo = null, pw = null;
+try { pw = sessionStorage.getItem('imu-admin-pw'); } catch (e) {}
+
+function toast(t, ms = 3500) { const m = $('msg'); m.textContent = t; m.style.display = 'block'; clearTimeout(toast.t); toast.t = setTimeout(() => m.style.display = 'none', ms); }
+
+async function post(url, data) {
+  for (let attempt = 0; attempt < 2; attempt++) {
+    const h = { 'Content-Type': 'application/x-www-form-urlencoded' };
+    if (pw) h['X-OTA-Password'] = pw;
+    const r = await fetch(url, { method: 'POST', headers: h, body: new URLSearchParams(data || {}).toString() });
+    if (r.status === 403 && attempt === 0) {
+      pw = prompt('Admin password (set in menuconfig → IMU Lab):');
+      if (pw === null) throw new Error('Cancelled');
+      try { sessionStorage.setItem('imu-admin-pw', pw); } catch (e) {}
+      continue;
+    }
+    if (!r.ok) throw new Error(await r.text());
+    return r.json().catch(() => ({}));
+  }
+}
+
+function setConn(ok) { const c = $('conn'); c.textContent = ok ? 'live' : 'no answer'; c.className = 'pill ' + (ok ? 'ok' : 'bad'); }
+
+async function pollStatus() {
+  try {
+    const r = await fetch('/api/status', { cache: 'no-store' });
+    last = await r.json(); setConn(true); render(last);
+  } catch (e) { setConn(false); }
+}
+
+function staText(s) {
+  return { connected: ['connected', 'ok'], connecting: ['joining…', 'warn'], searching: ['looking for saved networks…', 'warn'],
+    not_found: ['no saved network in range', 'muted'], off: ['no network saved', 'muted'] }[s] || [s, 'muted'];
+}
+
+function render(d) {
+  const f = d.fw;
+  $('fwline').textContent = `firmware ${f.version} · build ${f.build} · up ${fmtDur(d.uptime_s)}`;
+  $('ap-ssid').textContent = d.ap.ssid; $('ap-ch').textContent = d.ap.channel; $('ap-n').textContent = d.ap.clients.length;
+  const [st, cls] = staText(d.sta.state);
+  $('sta-state').textContent = st; $('sta-state').className = 'pill ' + cls;
+  $('sta-ssid').textContent = d.sta.ssid || '–';
+  if (d.sta.state === 'connected') {
+    $('sta-links').innerHTML = `<a href="http://${esc(d.sta.ip)}/">http://${esc(d.sta.ip)}/</a><br><span class="mono">http://${esc(d.sta.hostname)}/</span>`;
+    $('sta-dl').innerHTML = `<dt>IP given</dt><dd class="mono">${esc(d.sta.ip)}</dd><dt>Gateway</dt><dd class="mono">${esc(d.sta.gateway)}</dd>
+      <dt>Signal</dt><dd>${d.sta.rssi} dBm (${signalWord(d.sta.rssi)})</dd><dt>Channel</dt><dd>${d.sta.channel}</dd>`;
+  } else {
+    $('sta-links').innerHTML = '';
+    $('sta-dl').innerHTML = d.sta.reason ? `<dt>Last problem</dt><dd>${esc(reasonText(d.sta.reason))}</dd>` : '';
+  }
+  const i = d.imu;
+  if (i.valid) {
+    $('roll').textContent = i.roll.toFixed(1) + '°'; $('pitch').textContent = i.pitch.toFixed(1) + '°'; $('yaw').textContent = i.yaw.toFixed(1) + '°';
+    $('hz-g').setAttribute('transform', `rotate(${-i.roll}) translate(0 ${Math.max(-55, Math.min(55, i.pitch * 1.2))})`);
+    $('sigma').textContent = i.sigma.map(v => v.toFixed(2)).join(' / ') + ' °';
+    $('bias').textContent = i.bias.map(v => v.toFixed(3)).join(' / ') + ' °/s';
+    $('used').innerHTML = `gravity <b class="${i.gravity_used ? 'ok' : 'warn'}">${i.gravity_used ? 'used' : 'ignored (moving)'}</b> · heading <b class="${i.heading_used ? 'ok' : 'warn'}">${!i.mag_present ? 'no magnetometer' : i.heading_used ? 'used' : 'skipped'}</b>`;
+    $('hz').textContent = i.hz + ' Hz'; $('temp').textContent = i.temp.toFixed(1) + ' °C';
+    $('clip').textContent = `gyro ${i.clip_gyro}, accel ${i.clip_accel} samples since start`;
+  }
+  $('calstate').textContent = i.mag_calibrated ? 'stored' : 'none (raw readings)';
+  $('ap-clients').innerHTML = d.ap.clients.length ? d.ap.clients.map(c => `<tr><td class="mono">${esc(c.mac)}</td><td>${c.rssi} dBm</td></tr>`).join('')
+    : '<tr><td colspan="2" class="muted">nobody</td></tr>';
+  $('streams').textContent = d.ap.streams;
+  $('fw-dl').innerHTML = `<dt>Version</dt><dd>${esc(f.version)}</dd><dt>Build id</dt><dd class="mono">${esc(f.build)}</dd>
+    <dt>Running from</dt><dd>${esc(f.slot)} (${esc(f.state)})</dd><dt>ESP-IDF</dt><dd>${esc(f.idf)}</dd>
+    <dt>Free memory</dt><dd>${(d.heap_free / 1024).toFixed(0)} KB (lowest ${(d.heap_min / 1024).toFixed(0)} KB)</dd>`;
+}
+
+const signalWord = r => r >= -55 ? 'strong' : r >= -67 ? 'good' : r >= -75 ? 'fair' : 'weak';
+function fmtDur(s) { s = Math.round(s); if (s < 90) return s + ' s'; if (s < 5400) return Math.round(s / 60) + ' min'; return (s / 3600).toFixed(1) + ' h'; }
+
+async function pollWifi() {
+  try {
+    const r = await fetch('/api/wifi', { cache: 'no-store' });
+    wifiInfo = await r.json(); renderWifi(wifiInfo);
+  } catch (e) {}
+}
+
+function when(e, w) {
+  if (e.time) return new Date(e.time * 1000).toLocaleString();
+  if (e.boot === w.boot && w.now) return new Date((w.now - (w.uptime_s - e.uptime_s)) * 1000).toLocaleString();
+  if (e.boot === w.boot) return `${fmtDur(w.uptime_s - e.uptime_s)} ago`;
+  return `boot #${e.boot}, ${fmtDur(e.uptime_s)} after power-on`;
+}
+
+function renderWifi(w) {
+  $('known').innerHTML = w.known.length ? w.known.map(s => `<span class="pill">${esc(s)} <button data-forget="${esc(s)}" aria-label="Forget ${esc(s)}">Forget</button></span>`).join('')
+    : '<span class="muted">None yet. Scan and join one below.</span>';
+  $('hist').innerHTML = w.history.length ? w.history.map(e => {
+    const what = e.kind === 'connected' ? '<span class="ok">joined</span>' : e.kind === 'lost' ? `<span class="warn">lost</span> <span class="muted">${esc(reasonText(e.reason))}</span>`
+      : `<span class="bad">could not join</span> <span class="muted">${esc(reasonText(e.reason))}${e.count > 1 ? ` · ${e.count}×` : ''}</span>`;
+    return `<tr><td>${esc(when(e, w))}</td><td>${what}</td><td>${esc(e.ssid)}</td><td class="mono">${esc(e.ip || '–')}</td><td class="mono">${esc(e.gateway || '–')}</td><td>${e.kind === 'connected' ? e.rssi + ' dBm' : ''}</td></tr>`;
+  }).join('') : '<tr><td colspan="6" class="muted">Nothing yet.</td></tr>';
+}
+
+$('known').addEventListener('click', async ev => {
+  const s = ev.target.dataset && ev.target.dataset.forget; if (!s) return;
+  if (!confirm(`Forget "${s}"? The board won't join it again until you add it back.`)) return;
+  try { await post('/api/wifi/forget', { ssid: s }); toast(`Forgot "${s}"`); pollWifi(); } catch (e) { toast(e.message); }
+});
+$('clearhist').onclick = async () => { if (!confirm('Clear the connection history?')) return; try { await post('/api/wifi/clearhist'); pollWifi(); } catch (e) { toast(e.message); } };
+$('search').onclick = async () => { try { await post('/api/wifi/search'); toast('Looking for saved networks…'); } catch (e) { toast(e.message); } };
+
+$('scan').onclick = async () => {
+  const b = $('scan'); b.disabled = true; b.textContent = 'Scanning…';
+  try {
+    const r = await fetch('/api/scan', { cache: 'no-store' });
+    if (!r.ok) throw new Error(await r.text());
+    const list = (await r.json()).sort((a, c) => c.rssi - a.rssi);
+    const seen = new Set();
+    $('scan-list').innerHTML = list.filter(n => !seen.has(n.ssid) && seen.add(n.ssid)).map(n =>
+      `<tr><td>${esc(n.ssid)} ${n.secure ? '' : '<span class="muted">(open)</span>'}</td><td>${n.rssi} dBm · ${signalWord(n.rssi)}</td><td>${n.channel}</td>
+       <td><button data-ssid="${esc(n.ssid)}" data-open="${n.secure ? 0 : 1}">Join…</button></td></tr>`).join('') || '<tr><td colspan="4" class="muted">No networks found.</td></tr>';
+  } catch (e) { toast(e.message); }
+  b.disabled = false; b.textContent = 'Scan';
+};
+$('scan-list').addEventListener('click', ev => {
+  const s = ev.target.dataset && ev.target.dataset.ssid; if (s === undefined) return;
+  $('j-ssid').value = s; $('j-pass').value = '';
+  if (ev.target.dataset.open === '1') $('join').requestSubmit(); else $('j-pass').focus();
+});
+$('join').onsubmit = async ev => {
+  ev.preventDefault();
+  const ssid = $('j-ssid').value.trim(), pass = $('j-pass').value;
+  if (!ssid) return toast('Type the network name');
+  if (pass && pass.length < 8) return toast('Wi-Fi passwords have at least 8 characters');
+  try {
+    await post('/api/wifi', { ssid, pass });
+    $('j-pass').value = '';
+    toast(`Joining "${ssid}". If you are on IMU-Lab, it may drop for a few seconds.`, 6000);
+    setTimeout(pollWifi, 8000); setTimeout(pollWifi, 20000);
+  } catch (e) { toast(e.message); }
+};
+
+async function cmd(c, okText) { try { await post('/api/cmd', { cmd: c }); toast(okText); } catch (e) { toast(e.message); } }
+$('c-reset').onclick = () => cmd('reset', 'Filters reset');
+$('c-clearcal').onclick = () => { if (confirm('Clear the stored magnetometer calibration? Heading will be less accurate until you calibrate again in the lab.')) cmd('clearcal', 'Calibration cleared'); };
+$('c-restart').onclick = async () => {
+  if (!confirm('Restart the ESP32? It is back in about 5 seconds.')) return;
+  await cmd('restart', 'Restarting…');
+  waitBack(null, 'Back online');
+};
+
+async function waitBack(oldBuild, text) {
+  const t0 = Date.now(); await new Promise(r => setTimeout(r, 2500));
+  while (Date.now() - t0 < 45000) {
+    try {
+      const r = await fetch('/version', { cache: 'no-store' }); const v = await r.json();
+      if (!oldBuild || v.build !== oldBuild) { toast(typeof text === 'function' ? text(v) : text, 6000); pollStatus(); pollWifi(); return; }
+      if (v.uptime_s < 30) { toast('Restarted, but it is still running the old build: the update was rolled back.', 8000); return; }
+    } catch (e) {}
+    await new Promise(r => setTimeout(r, 1500));
+  }
+  toast('No answer yet. If you are on IMU-Lab, check that your device reconnected to it.', 8000);
+}
+
+$('fw-file').onchange = () => { $('fw-go').disabled = !$('fw-file').files.length; };
+$('fw-go').onclick = () => {
+  const file = $('fw-file').files[0]; if (!file) return;
+  if (!confirm(`Upload ${file.name} (${(file.size / 1024).toFixed(0)} KB) and restart into it?`)) return;
+  const oldBuild = last && last.fw.build, prog = $('fw-prog'), b = $('fw-go');
+  const x = new XMLHttpRequest();
+  x.open('POST', '/update');
+  if (pw) x.setRequestHeader('X-OTA-Password', pw);
+  x.upload.onprogress = e => { if (e.lengthComputable) prog.value = 100 * e.loaded / e.total; };
+  x.onload = () => {
+    b.disabled = false;
+    if (x.status === 200) { toast('Uploaded and verified. Restarting…', 6000); waitBack(oldBuild, v => `Now running build ${v.build} from ${v.slot}`); }
+    else if (x.status === 403) { pw = prompt('Admin password:'); try { sessionStorage.setItem('imu-admin-pw', pw); } catch (e) {} toast('Press Upload again'); }
+    else toast('Update refused: ' + x.responseText, 8000);
+    prog.hidden = true;
+  };
+  x.onerror = () => { b.disabled = false; prog.hidden = true; toast('Upload failed: connection lost'); };
+  prog.hidden = false; prog.value = 0; b.disabled = true;
+  x.send(file);
+};
+
+async function pollLog() {
+  try {
+    const r = await fetch('/api/log', { cache: 'no-store' }); const t = await r.text();
+    const el = $('log'), atEnd = el.scrollTop + el.clientHeight >= el.scrollHeight - 20;
+    el.textContent = t.replace(/\x1b\[[0-9;]*m/g, '');
+    if (atEnd) el.scrollTop = el.scrollHeight;
+  } catch (e) {}
+}
+$('log-now').onclick = pollLog;
+
+pollStatus(); pollWifi(); pollLog();
+setInterval(pollStatus, 1000);
+setInterval(pollWifi, 5000);
+setInterval(() => { if ($('log-auto').checked && !document.hidden) pollLog(); }, 3000);
+</script>
+</body>
+</html>

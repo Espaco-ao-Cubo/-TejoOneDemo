@@ -1,5 +1,6 @@
 # local backup of the old IMU Fusion Lab page
-imu_fusion_lab_BEFORE_show_version.html
+viewer/imu_fusion_lab_BEFORE_show_version.html
+# (firmware/ has its own .gitignore for build output, sdkconfig and recordings)
 __pycache__/
 *.pyc
 *.blend1

@@ -1,0 +1,5 @@
+FINISHED   120.0 / 120 min
+samples 719891  (100.0 Hz)  gaps 10  bad lines 4
+temperature 26.10 C
+gyro mean last minute (deg/s): +nan +nan +nan
+file C:\Users\alexa\blink\tools\allan\logs\allan_20261115_032041.csv

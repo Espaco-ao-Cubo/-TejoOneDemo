@@ -1,0 +1,2226 @@
+<!doctype html>
+<html lang="en">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>IMU Fusion Lab</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@75..100,500..800&family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:ital,wght@0,400;0,500;0,600;1,400&display=swap">
+<style>
+/* Layout: an instrument bench. The live lab runs full width on top; the deep dive below is a reading column with a sticky chapter index. */
+:root {
+  --paper: #EDF0F3;
+  --surface: #FFFFFF;
+  --sunk: #E2E7EC;
+  --ink: #13202C;
+  --muted: #586775;
+  --line: #CED6DE;
+  --accent: #C9480F;
+  --accent-ink: #FFFFFF;
+  --accent-soft: #F8E2D5;
+  --ax-x: #D23A2A;
+  --ax-y: #22914A;
+  --ax-z: #2A6EDF;
+  --a-gyro: #7A4AD8;
+  --a-am: #66788A;
+  --a-comp: #0E9894;
+  --a-mahony: #D3285A;
+  --a-madgwick: #2462E8;
+  --a-kalman: #B07514;
+  --a-eskf: #13804A;
+  --a-b-eskf: #5B7A0E;
+  --a-b-mahony: #A0174F;
+  --truth: #13202C;
+  --good: #1D8A4C;
+  --warn: #A86C0E;
+  --bad: #C42B2B;
+  --f-display: "Archivo", "Arial Narrow", "Segoe UI", system-ui, sans-serif;
+  --f-body: "IBM Plex Sans", "Segoe UI", system-ui, -apple-system, sans-serif;
+  --f-mono: "IBM Plex Mono", "Cascadia Mono", Consolas, ui-monospace, monospace;
+  --r: 10px;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --paper: #0D1319; --surface: #141C24; --sunk: #1B252F; --ink: #E2E9F0; --muted: #93A2B0; --line: #27333F;
+    --accent: #FF8A45; --accent-ink: #1A0E05; --accent-soft: #3A2316;
+    --ax-x: #FF6B5B; --ax-y: #4CC97A; --ax-z: #5C9BFF;
+    --a-gyro: #A98BFF; --a-am: #9AABBB; --a-comp: #2CC9C3; --a-mahony: #FF5C8A; --a-madgwick: #6A9BFF; --a-kalman: #E3A63F; --a-eskf: #3DD68C; --a-b-eskf: #B5D85A; --a-b-mahony: #F178B6; --truth: #E2E9F0;
+    --good: #4CC97A; --warn: #E3A63F; --bad: #FF6B5B;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --paper: #0D1319; --surface: #141C24; --sunk: #1B252F; --ink: #E2E9F0; --muted: #93A2B0; --line: #27333F;
+  --accent: #FF8A45; --accent-ink: #1A0E05; --accent-soft: #3A2316;
+  --ax-x: #FF6B5B; --ax-y: #4CC97A; --ax-z: #5C9BFF;
+  --a-gyro: #A98BFF; --a-am: #9AABBB; --a-comp: #2CC9C3; --a-mahony: #FF5C8A; --a-madgwick: #6A9BFF; --a-kalman: #E3A63F; --a-eskf: #3DD68C; --a-b-eskf: #B5D85A; --a-b-mahony: #F178B6; --truth: #E2E9F0;
+  --good: #4CC97A; --warn: #E3A63F; --bad: #FF6B5B;
+  color-scheme: dark;
+}
+
+* { box-sizing: border-box; }
+body { background: var(--paper); color: var(--ink); font-family: var(--f-body); font-size: 15px; line-height: 1.6; }
+.wrap { max-width: 1320px; margin: 0 auto; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); }
+h1, h2, h3 { font-family: var(--f-display); text-wrap: balance; margin: 0; letter-spacing: -0.01em; }
+h1 { font-size: clamp(2.2rem, 5vw, 3.6rem); font-weight: 800; font-stretch: 78%; line-height: 1; }
+h2 { font-size: 1.85rem; font-weight: 750; font-stretch: 82%; line-height: 1.1; }
+h3 { font-size: 1.15rem; font-weight: 700; font-stretch: 88%; }
+p { margin: 0; }
+a { color: var(--accent); }
+code, .mono { font-family: var(--f-mono); font-size: 0.88em; }
+code { background: var(--sunk); padding: 0.08em 0.35em; border-radius: 4px; }
+.eyebrow { font-family: var(--f-mono); font-size: 0.75rem; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); }
+button, select, input { font: inherit; color: inherit; }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+/* Masthead */
+.mast { padding-block: 32px 20px; display: grid; gap: 14px; }
+.mast .lede { max-width: 68ch; color: var(--muted); font-size: 1.05rem; }
+.mast .lede strong { color: var(--ink); font-weight: 600; }
+
+/* Toolbar */
+.toolbar { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; padding-block: 12px; border-top: 1px solid var(--line); }
+.seg { display: inline-flex; background: var(--sunk); border-radius: 8px; padding: 3px; gap: 2px; }
+.seg button { border: 0; background: transparent; padding: 6px 12px; border-radius: 6px; cursor: pointer; font-size: 0.9rem; color: var(--muted); white-space: nowrap; }
+.seg button[aria-pressed="true"] { background: var(--surface); color: var(--ink); font-weight: 600; box-shadow: 0 1px 2px rgb(0 0 0 / 0.12); }
+.btn { border: 1px solid var(--line); background: var(--surface); padding: 6px 12px; border-radius: 8px; cursor: pointer; font-size: 0.9rem; white-space: nowrap; }
+.btn:hover { border-color: var(--muted); }
+.btn.primary { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); font-weight: 600; }
+.btn:disabled { opacity: 0.5; cursor: default; }
+.pill { display: inline-flex; align-items: center; gap: 6px; font-family: var(--f-mono); font-size: 0.78rem; padding: 4px 10px; border-radius: 999px; background: var(--sunk); color: var(--muted); }
+.pill::before { content: ""; width: 7px; height: 7px; border-radius: 50%; background: currentColor; }
+.pill.good { color: var(--good); } .pill.warn { color: var(--warn); } .pill.bad { color: var(--bad); }
+.spacer { flex: 1; }
+.check { display: inline-flex; gap: 6px; align-items: center; font-size: 0.9rem; cursor: pointer; }
+.check input { accent-color: var(--accent); width: 16px; height: 16px; }
+
+.note { display: flex; gap: 12px; align-items: flex-start; background: var(--accent-soft); border-radius: var(--r); padding: 10px 14px; margin-bottom: 12px; }
+.note p { flex: 1; min-width: 0; }
+.note .x { border: 0; background: transparent; cursor: pointer; font-size: 1.1rem; line-height: 1; color: var(--muted); padding: 2px 4px; }
+.blocked { background: var(--surface); border: 1px solid var(--line); border-left: 3px solid var(--warn); border-radius: var(--r); padding: 12px 14px; margin-bottom: 12px; display: grid; gap: 6px; }
+
+/* Views */
+/* 12-column track: 7 cards lay out 4 + 3, 9 cards (Wi-Fi) lay out 3 + 3 + 3 */
+.views { display: grid; grid-template-columns: repeat(12, minmax(0, 1fr)); gap: 12px; }
+.views .view { grid-column: span 4; }
+.views.n7 .view:nth-child(-n+4) { grid-column: span 3; }
+@media (max-width: 960px) {
+  .views .view, .views.n7 .view:nth-child(n) { grid-column: span 6; }
+  .views.n7 .view:nth-child(7) { grid-column: span 12; }
+  .views.n7 .view:nth-child(7) .stage { aspect-ratio: 16 / 7; }
+}
+.host { border: 1px solid var(--line); background: var(--surface); border-radius: 8px; padding: 5px 8px; font-family: var(--f-mono); font-size: 0.85rem; width: 13em; max-width: 100%; }
+.view { background: var(--surface); border: 1px solid var(--line); border-radius: var(--r); overflow: hidden; display: grid; grid-template-rows: auto auto auto; min-width: 0; }
+.view header { display: flex; align-items: center; gap: 8px; padding: 9px 12px 0; min-width: 0; }
+.view header h3 { font-size: 1rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.dot { width: 10px; height: 10px; border-radius: 3px; flex: none; }
+.view .err { margin-left: auto; font-family: var(--f-mono); font-size: 0.75rem; color: var(--muted); white-space: nowrap; font-variant-numeric: tabular-nums; }
+.present { position: fixed; inset: 0; z-index: 50; background: var(--paper); display: grid; grid-template-rows: minmax(0, 1fr) auto; }
+.present[hidden] { display: none; }
+.present-stage { position: relative; min-height: 0; }
+.present-stage canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
+.present-hint { position: absolute; left: 50%; top: 16px; transform: translateX(-50%); margin: 0; padding: 8px 14px; border-radius: 8px; background: var(--surface); border: 1px solid var(--line); color: var(--muted); font-size: 0.95rem; max-width: calc(100% - 32px); text-align: center; }
+.present-bar { display: flex; flex-wrap: wrap; gap: 12px 18px; align-items: center; padding: 12px 20px; border-top: 1px solid var(--line); background: var(--surface); }
+.present-angles { display: flex; gap: 28px; margin-right: auto; }
+.present-angles span { display: block; color: var(--muted); font-size: 0.8rem; }
+.present-angles b { font: 600 2.2rem/1.1 var(--f-mono); font-variant-numeric: tabular-nums; }
+.present-bar select { font: inherit; padding: 6px 8px; border-radius: 8px; border: 1px solid var(--line); background: var(--surface); color: var(--ink); }
+@media (max-width: 640px) { .present-angles { gap: 16px; } .present-angles b { font-size: 1.4rem; } }
+.present-hint, .cube-cal { z-index: 2; }   /* above the 3D canvas, which is added later */
+.cube-cal { position: absolute; right: 16px; top: 16px; width: min(380px, calc(100% - 32px)); max-height: calc(100% - 32px); overflow: auto; background: var(--surface); border: 1px solid var(--line); border-radius: var(--r); padding: 14px 16px; display: grid; gap: 10px; box-shadow: 0 6px 24px rgb(0 0 0 / 0.18); }
+.cube-cal h3 { margin: 0; font-size: 1rem; }
+.cube-cal p { margin: 0; }
+.cube-cal ol { margin: 0; padding-left: 1.3em; display: grid; gap: 6px; }
+.cube-cal li { color: var(--muted); }
+.cube-cal li.done { color: var(--good); }
+.cube-cal li.now { color: var(--ink); }
+.cube-cal li span { font-size: 0.9rem; }
+.cube-cal .row { display: flex; flex-wrap: wrap; gap: 8px; }
+#cc-msg { display: grid; gap: 6px; font-size: 0.92rem; }
+#cc-msg .warn { color: var(--warn); } #cc-msg .good { color: var(--good); }
+.stage { position: relative; aspect-ratio: 4 / 3; max-width: 100%; }
+.stage canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
+.view footer { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); padding: 0 12px 10px; font-family: var(--f-mono); font-size: 0.78rem; font-variant-numeric: tabular-nums; }
+.view footer span { color: var(--muted); }
+.view footer b { font-weight: 500; color: var(--ink); }
+@media (max-width: 520px) { .view footer { font-size: 0.68rem; padding-inline: 8px; } .view header { padding-inline: 8px; } .view .err { display: none; } }
+
+/* Lab lower half */
+.bench { display: grid; grid-template-columns: minmax(0, 1.55fr) minmax(0, 1fr); gap: 12px; margin-top: 12px; align-items: start; }
+@media (max-width: 1000px) { .bench { grid-template-columns: minmax(0, 1fr); } }
+.panel { background: var(--surface); border: 1px solid var(--line); border-radius: var(--r); padding: 14px; min-width: 0; display: grid; gap: 12px; }
+.panel-head { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; justify-content: space-between; }
+.chart { width: 100%; display: block; }
+.chart.tall { height: 240px; } .chart.short { height: 110px; } .chart.mid { height: 170px; }
+.legend { display: flex; flex-wrap: wrap; gap: 6px; }
+.legend button { display: inline-flex; gap: 6px; align-items: center; border: 1px solid var(--line); background: transparent; border-radius: 999px; padding: 2px 10px 2px 8px; cursor: pointer; font-size: 0.8rem; }
+.legend button[aria-pressed="false"] { opacity: 0.4; }
+.legend .sw { width: 14px; height: 3px; border-radius: 2px; }
+.raw-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
+@media (max-width: 700px) { .raw-grid { grid-template-columns: minmax(0, 1fr); } }
+.raw-grid .lbl { font-family: var(--f-mono); font-size: 0.75rem; color: var(--muted); display: flex; justify-content: space-between; gap: 6px; }
+.axis-key { display: inline-flex; gap: 8px; } .axis-key i { font-style: normal; font-weight: 500; }
+
+.tabs { display: flex; gap: 2px; border-bottom: 1px solid var(--line); overflow-x: auto; }
+.tabs button { border: 0; background: transparent; padding: 8px 12px; cursor: pointer; color: var(--muted); border-bottom: 2px solid transparent; margin-bottom: -1px; white-space: nowrap; font-size: 0.92rem; }
+.tabs button[aria-selected="true"] { color: var(--ink); border-bottom-color: var(--accent); font-weight: 600; }
+.tabpane { display: grid; gap: 14px; }
+.group { display: grid; gap: 8px; padding-bottom: 12px; border-bottom: 1px dashed var(--line); }
+.group:last-child { border-bottom: 0; padding-bottom: 0; }
+.group-title { display: flex; align-items: center; gap: 8px; font-weight: 600; }
+.hint { color: var(--muted); font-size: 0.85rem; }
+.derived { font-family: var(--f-mono); font-size: 0.78rem; color: var(--muted); font-variant-numeric: tabular-nums; }
+.slider { display: grid; grid-template-columns: 7em minmax(0, 1fr) 8.2em; gap: 10px; align-items: center; font-size: 0.88rem; }
+@media (max-width: 420px) { .slider { grid-template-columns: 5.5em minmax(0, 1fr) 7.4em; gap: 6px; font-size: 0.8rem; } }
+.slider input[type=range] { width: 100%; accent-color: var(--accent); }
+.slider output { font-family: var(--f-mono); font-size: 0.8rem; text-align: right; font-variant-numeric: tabular-nums; }
+.row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+select { border: 1px solid var(--line); background: var(--surface); border-radius: 8px; padding: 5px 8px; font-size: 0.9rem; }
+.meter { height: 6px; background: var(--sunk); border-radius: 3px; overflow: hidden; }
+.meter i { display: block; height: 100%; width: 0; background: var(--accent); }
+.log { font-family: var(--f-mono); font-size: 0.74rem; background: var(--sunk); border-radius: 8px; padding: 8px 10px; white-space: pre-wrap; word-break: break-all; max-height: 9.5em; overflow: auto; color: var(--muted); margin: 0; }
+.kv { display: grid; grid-template-columns: auto 1fr; gap: 2px 12px; font-family: var(--f-mono); font-size: 0.8rem; font-variant-numeric: tabular-nums; }
+.kv dt { color: var(--muted); } .kv dd { margin: 0; }
+
+/* Deep dive */
+.dive { display: grid; grid-template-columns: 210px minmax(0, 1fr); gap: 56px; padding-block: 56px 72px; }
+@media (max-width: 1000px) { .dive { grid-template-columns: minmax(0, 1fr); gap: 24px; } .toc { position: static !important; } }
+.toc { position: sticky; top: calc(env(safe-area-inset-top, 0px) + 16px); align-self: start; display: grid; gap: 4px; font-size: 0.88rem; }
+.toc ol { list-style: none; margin: 8px 0 0; padding: 0; display: grid; gap: 2px; counter-reset: ch; }
+.toc li { counter-increment: ch; }
+.toc a { display: grid; grid-template-columns: 2em 1fr; text-decoration: none; color: var(--muted); padding: 3px 0; }
+.toc a::before { content: counter(ch, decimal-leading-zero); font-family: var(--f-mono); font-size: 0.78rem; padding-top: 0.15em; }
+.toc a:hover, .toc a.on { color: var(--ink); }
+.toc a.on::before { color: var(--accent); }
+.chapters { display: grid; gap: 64px; min-width: 0; counter-reset: chap; }
+.chapter { display: grid; gap: 16px; max-width: 72ch; min-width: 0; counter-increment: chap; scroll-margin-top: 16px; }
+.chapter > h2::before { content: counter(chap, decimal-leading-zero); display: block; font-family: var(--f-mono); font-size: 0.8rem; font-weight: 500; color: var(--accent); letter-spacing: 0.06em; margin-bottom: 6px; }
+.chapter.wide { max-width: none; }
+.chapter ul, .chapter ol { margin: 0; padding-left: 1.3em; display: grid; gap: 4px; }
+.eq { font-family: var(--f-mono); font-size: 0.92rem; background: var(--surface); border: 1px solid var(--line); border-radius: 8px; padding: 12px 16px; overflow-x: auto; white-space: pre; line-height: 1.7; }
+.eq .c { color: var(--muted); }
+.try { display: flex; flex-wrap: wrap; gap: 10px 14px; align-items: center; background: var(--surface); border: 1px solid var(--line); border-radius: var(--r); padding: 12px 14px; }
+.try p { flex: 1 1 280px; min-width: 0; font-size: 0.93rem; }
+.try p b { font-family: var(--f-mono); font-size: 0.75rem; letter-spacing: 0.08em; text-transform: uppercase; color: var(--accent); display: block; font-weight: 500; }
+.tbl { overflow-x: auto; }
+table { border-collapse: collapse; width: 100%; font-size: 0.9rem; }
+th, td { text-align: left; padding: 8px 10px; border-bottom: 1px solid var(--line); vertical-align: top; }
+th { font-family: var(--f-mono); font-size: 0.74rem; letter-spacing: 0.06em; text-transform: uppercase; color: var(--muted); font-weight: 500; }
+td.num { font-family: var(--f-mono); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.cols2 { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+@media (max-width: 700px) { .cols2 { grid-template-columns: minmax(0, 1fr); } }
+.box { background: var(--surface); border: 1px solid var(--line); border-radius: var(--r); padding: 12px 14px; display: grid; gap: 6px; min-width: 0; }
+.gimbal { display: grid; grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr); gap: 12px; }
+@media (max-width: 860px) { .gimbal { grid-template-columns: minmax(0, 1fr); } }
+#gimbal-canvas { width: 100%; height: 260px; display: block; }
+footer.foot { border-top: 1px solid var(--line); padding-block: 20px 40px; color: var(--muted); font-size: 0.85rem; }
+@media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } }
+</style>
+
+<div class="wrap">
+  <header class="mast">
+    <div class="eyebrow">ESP32 · ICM-20600 + AK09918 · 9-DOF orientation</div>
+    <h1>IMU Fusion Lab</h1>
+    <p class="lede">Six ways to turn a gyroscope, an accelerometer and a magnetometer into one orientation, running side by side. <strong>A simulated board is moving now</strong>, so you can see where each one goes wrong. Plug in your ESP32 to drive the same models with your hand. The deep dive below goes through each algorithm and the math behind it.</p>
+  </header>
+
+  <section id="lab" aria-label="Live lab">
+    <div class="toolbar">
+      <div class="seg" role="group" aria-label="Data source">
+        <button id="src-sim" aria-pressed="true">Simulated</button>
+        <button id="src-real" aria-pressed="false">USB</button>
+        <button id="src-wifi" aria-pressed="false">Wi-Fi</button>
+      </div>
+      <input class="host" id="wifi-host" value="imu-lab.local" aria-label="ESP32 address on the network" spellcheck="false" hidden>
+      <button class="btn primary" id="btn-connect" hidden>Connect ESP32</button>
+      <span class="pill good" id="status">Simulating · 100 Hz</span>
+      <span class="spacer"></span>
+      <label class="check"><input type="checkbox" id="use-mag" checked> Use magnetometer</label>
+      <button class="btn" id="btn-pause">Pause</button>
+      <button class="btn" id="btn-reset" title="Set every filter back to level, pointing north">Reset filters</button>
+      <button class="btn" id="btn-zero" title="Hold the board the way you will present it, ESP32 end pointing at the screen, then press this (or Z)">Set zero</button>
+      <button class="btn" id="btn-unzero" hidden>Clear zero</button>
+      <label class="check" title="Off: the models show only tilt, never turning. Safer where the compass is unreliable."><input type="checkbox" id="follow-yaw" checked> Follow turning</label>
+      <button class="btn primary" id="btn-present">Present</button>
+    </div>
+
+    <div class="note" id="lab-note" hidden><p id="lab-note-text"></p><button class="x" id="lab-note-x" aria-label="Dismiss">×</button></div>
+    <div class="blocked" id="serial-blocked" hidden>
+      <strong>This viewer can't reach your ESP32.</strong>
+      <span class="hint">The hosted page can't open USB ports or connect to devices on your network. Open the local copy instead: <code>firmware/tools/imu_lab.html</code> in the TejoOne demo repo, in Chrome or Edge. For USB, close <code>idf.py monitor</code> first, because only one program can use the port at a time.</span>
+    </div>
+
+    <div class="views" id="views"></div>
+
+    <div class="present" id="present" hidden role="dialog" aria-label="Presentation view">
+      <div class="present-stage" id="present-stage"><p class="present-hint" id="pr-hint"></p>
+        <div class="cube-cal" id="cube-cal" hidden role="region" aria-label="Cube setup">
+          <h3>Cube setup</h3>
+          <p class="hint">Finds how the IMU sits inside your cube and what "level" is on this table. Takes about a minute. Each step: put the cube in the pose, then press Capture (or Space) and keep it still for a second.</p>
+          <ol id="cc-steps"></ol>
+          <div id="cc-msg" aria-live="polite"></div>
+          <div class="row">
+            <button class="btn primary" id="cc-go">Capture</button>
+            <button class="btn" id="cc-redo" hidden>Start over</button>
+            <button class="btn" id="cc-close">Close</button>
+          </div>
+          <p class="hint" id="cc-forget-row" hidden><button class="btn" id="cc-forget">Remove cube setup</button></p>
+        </div>
+      </div>
+      <div class="present-bar">
+        <div class="present-angles">
+          <div><span>Roll</span><b id="pr-r">0.0</b></div><div><span>Pitch</span><b id="pr-p">0.0</b></div><div><span>Yaw</span><b id="pr-y">0.0</b></div>
+        </div>
+        <select id="present-src" aria-label="Which filter to show"></select>
+        <select id="pr-model" aria-label="Model"><option value="cube">Cube</option><option value="board">Board</option></select>
+        <select id="pr-face" aria-label="Which way the model faces"><option value="audience">+X toward audience</option><option value="into">+X into the screen</option></select>
+        <button class="btn" id="pr-setup">Cube setup…</button>
+        <button class="btn primary" id="pr-zero">Set zero (Space)</button>
+        <label class="check"><input type="checkbox" id="pr-follow" checked> Follow turning (F)</label>
+        <button class="btn" id="pr-exit">Exit (Esc)</button>
+      </div>
+    </div>
+
+    <div class="bench">
+      <div class="panel">
+        <div class="panel-head">
+          <div class="seg" role="group" aria-label="Angle to plot">
+            <button data-axis="0" aria-pressed="true">Roll</button>
+            <button data-axis="1" aria-pressed="false">Pitch</button>
+            <button data-axis="2" aria-pressed="false">Yaw</button>
+          </div>
+          <span class="eyebrow">degrees · last 10 s</span>
+        </div>
+        <canvas class="chart tall" id="angle-chart" aria-label="Angle estimate of each algorithm over time"></canvas>
+        <div class="legend" id="legend"></div>
+        <div class="raw-grid">
+          <div><div class="lbl"><span>Accel · g</span><span class="axis-key"><i style="color:var(--ax-x)">x</i><i style="color:var(--ax-y)">y</i><i style="color:var(--ax-z)">z</i></span></div><canvas class="chart short" id="raw-acc"></canvas></div>
+          <div><div class="lbl"><span>Gyro · °/s</span><span class="axis-key"><i style="color:var(--ax-x)">x</i><i style="color:var(--ax-y)">y</i><i style="color:var(--ax-z)">z</i></span></div><canvas class="chart short" id="raw-gyro"></canvas></div>
+          <div><div class="lbl"><span>Mag · µT</span><span class="axis-key"><i style="color:var(--ax-x)">x</i><i style="color:var(--ax-y)">y</i><i style="color:var(--ax-z)">z</i></span></div><canvas class="chart short" id="raw-mag"></canvas></div>
+        </div>
+      </div>
+
+      <div class="panel">
+        <div class="tabs" role="tablist">
+          <button role="tab" aria-selected="true" data-tab="tune">Tune filters</button>
+          <button role="tab" aria-selected="false" data-tab="sim">Simulated board</button>
+          <button role="tab" aria-selected="false" data-tab="cal">Calibrate</button>
+        </div>
+        <div class="tabpane" id="tab-tune"></div>
+        <div class="tabpane" id="tab-sim" hidden>
+          <div class="row"><label for="pattern">Motion</label>
+            <select id="pattern">
+              <option value="still">Still on the desk</option>
+              <option value="wobble" selected>Slow wobble</option>
+              <option value="spin">Turntable spin</option>
+              <option value="aggressive">Aggressive handling</option>
+              <option value="loop">Loop the loop (through vertical)</option>
+          <option value="handle">Pick up, move, put back</option>
+            </select>
+          </div>
+          <div id="sim-sliders" class="group"></div>
+          <div class="row">
+            <button class="btn" id="btn-magnet">Bring a magnet close</button>
+            <button class="btn" id="btn-truth">Snap filters to truth</button>
+          </div>
+          <p class="hint">The dashed outline in each view is the true orientation. The error at the top of each card is the RMS angle between estimate and truth over the last 10 s.</p>
+        </div>
+        <div class="tabpane" id="tab-cal" hidden>
+          <div class="group">
+            <div class="group-title">Gyro bias</div>
+            <p class="hint">Keep the board completely still, then measure. The average rate over 3 s is the bias, and it gets subtracted from every reading.</p>
+            <div class="row"><button class="btn" id="cal-gyro">Measure gyro bias (3 s)</button><button class="btn" id="cal-gyro-clear">Clear</button></div>
+            <div class="meter"><i id="cal-gyro-bar"></i></div>
+            <div class="derived" id="cal-gyro-out">bias x 0.000 · y 0.000 · z 0.000 °/s</div>
+          </div>
+          <div class="group">
+            <div class="group-title">Magnetometer hard and soft iron</div>
+            <p class="hint">Start, then slowly turn the board through every direction for 20 s: tumble it, roll it, point each face at the floor. Keep it away from metal and magnets.</p>
+            <div class="row"><button class="btn" id="cal-mag">Start 20 s calibration</button><button class="btn" id="cal-mag-clear">Clear</button></div>
+            <div class="meter"><i id="cal-mag-bar"></i></div>
+            <div class="derived" id="cal-mag-out">offset 0.0 · 0.0 · 0.0 µT · scale 1.00 · 1.00 · 1.00</div>
+          </div>
+          <div class="group">
+            <div class="group-title">Magnetometer axes</div>
+            <p class="hint">The AK09918 can sit on the board rotated relative to the ICM-20600. Choose which accelerometer axis each magnetometer axis lines up with. If the dip angle below stays steady while you rotate the board, the axes match.</p>
+            <div class="row" id="map-row"></div>
+            <dl class="kv">
+              <dt>Dip angle</dt><dd id="dip-out">—</dd>
+              <dt>Field strength</dt><dd id="field-out">—</dd>
+            </dl>
+          </div>
+          <div class="group">
+            <div class="group-title">On-board filters (Wi-Fi)</div>
+            <p class="hint">The ESP32 runs its own Mahony and ESKF and needs the same magnetometer offset, scale and axis map. Sending stores them in the ESP32's flash and restarts both filters.</p>
+            <div class="row"><button class="btn" id="cal-send" disabled>Send calibration to ESP32</button><span class="derived" id="cal-send-out">Connect over Wi-Fi first</span></div>
+          </div>
+          <div class="group">
+            <div class="group-title">Serial log</div>
+            <pre class="log" id="serial-log">Lines from the ESP32 that are not sensor data show up here, such as the I2C scan at boot.</pre>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <div class="dive">
+    <nav class="toc" aria-label="Chapters">
+      <span class="eyebrow">Deep dive</span>
+      <ol id="toc-list"></ol>
+    </nav>
+
+    <div class="chapters">
+
+      <section class="chapter" id="sensors">
+        <h2>What the three sensors actually measure</h2>
+        <p>None of your three chips measures orientation. Each one measures something that orientation affects, and each one lies in its own way. The rest of this page is about combining them so the strengths of one cover the weaknesses of another.</p>
+        <div class="tbl"><table>
+          <thead><tr><th>Sensor</th><th>Measures</th><th>Good at</th><th>Fails when</th></tr></thead>
+          <tbody>
+            <tr><td><b>Gyroscope</b><br><span class="hint">ICM-20600</span></td><td>Angular rate ω around its x, y, z axes, in °/s</td><td>Fast, smooth, almost unaffected by vibration or magnets</td><td>Always: a small constant <b>bias</b> integrates into an angle error that keeps growing</td></tr>
+            <tr><td><b>Accelerometer</b><br><span class="hint">ICM-20600</span></td><td>Specific force: gravity pointing up, plus any acceleration of the board, in g</td><td>Absolute tilt (roll and pitch) that never drifts</td><td>The board accelerates (shaking, walking, a drone thrust). It can't tell gravity from motion. It is also blind to rotation around vertical.</td></tr>
+            <tr><td><b>Magnetometer</b><br><span class="hint">AK09918</span></td><td>The magnetic field vector, in µT. Earth's field points north and dips into the ground.</td><td>Absolute heading (yaw) that never drifts</td><td>Nearby iron, magnets, motors, laptop speakers, current-carrying wires. Needs calibration for the board's own magnetism.</td></tr>
+          </tbody>
+        </table></div>
+        <p>Your firmware already converts raw counts into physical units. At the ranges it sets, one count is:</p>
+        <div class="eq">accel  ±4 g      → 8192 counts per g        <span class="c">(ACCEL_CONFIG = 0x08)</span>
+gyro   ±2000 °/s → 16.4 counts per °/s      <span class="c">(GYRO_CONFIG  = 0x18)</span>
+mag    AK09918   → 0.15 µT per count        <span class="c">(fixed)</span></div>
+        <p>Pick the range for the fastest motion you will ever make, not the typical one. A flick of the wrist passes 1000 °/s. Past the limit the reading just sits at full scale, so the gyro reports less rotation than really happened, and that error stays in the orientation until gravity and the magnetometer slowly remove it. This board first ran at ±500 °/s, and fast turns past that limit are the most likely reason it came back misaligned after being handled. The firmware now flags every clipped sample and widens the ESKF's uncertainty, so it trusts gravity and the magnetometer right away. The cost of the wider range is coarser steps: 0.06 °/s per count instead of 0.015, still below the gyro's own noise.</p>
+        <p>The key fact to hold on to: <b>the gyro is good over short times and bad over long times, and the accelerometer and magnetometer are the opposite.</b> Every algorithm below is a different way to act on that one sentence.</p>
+      </section>
+
+      <section class="chapter" id="orientation">
+        <h2>Writing orientation down</h2>
+        <p>There are three common ways to store "which way the board is pointing", and the algorithms use all of them.</p>
+        <div class="cols2">
+          <div class="box"><h3>Euler angles</h3><p>Three angles applied in order: yaw ψ around z, then pitch θ around y, then roll φ around x. Easy to read, which is why every card shows them. They break at pitch ±90°, where roll and yaw spin around the same axis and become ambiguous. That point is called <b>gimbal lock</b>.</p></div>
+          <div class="box"><h3>Quaternion</h3><p>Four numbers q = (w, x, y, z) with length 1. A rotation by angle α around unit axis u is q = (cos α/2, u·sin α/2). No singularities, cheap to multiply, easy to renormalise. Every filter here stores its state as a quaternion, except the Kalman filter.</p></div>
+        </div>
+        <p>Conventions used throughout this page, and by Madgwick's and Mahony's reference code:</p>
+        <ul>
+          <li><b>World frame NWU:</b> x points to magnetic north, y to west, z up.</li>
+          <li><b>Sensor frame:</b> the ICM-20600's axes printed on its package. Lying flat and still, the accelerometer reads (0, 0, +1) g.</li>
+          <li><b>q rotates sensor vectors into the world:</b> v<sub>world</sub> = q ⊗ v<sub>sensor</sub> ⊗ q*.</li>
+          <li><b>Signs:</b> positive yaw turns the nose toward west (counter-clockwise seen from above). Positive pitch tips the nose <i>down</i>. Compass heading = −yaw.</li>
+        </ul>
+        <p>Converting a quaternion to the angles shown on the cards:</p>
+        <div class="eq">roll  φ = atan2( 2(wx + yz), 1 − 2(x² + y²) )
+pitch θ = asin ( 2(wy − zx) )                  <span class="c">← asin saturates at ±90°: gimbal lock</span>
+yaw   ψ = atan2( 2(wz + xy), 1 − 2(y² + z²) )</div>
+      </section>
+
+      <section class="chapter" id="gyro">
+        <h2>Gyro integration and drift</h2>
+        <p>If you know the orientation now and the rotation rate ω, you know the orientation one sample later. For quaternions the rate of change is</p>
+        <div class="eq">q̇ = ½ · q ⊗ (0, ωx, ωy, ωz)          <span class="c">ω in rad/s, sensor frame</span>
+
+discrete, exact for constant ω over Δt:
+q[k+1] = q[k] ⊗ ( cos(|ω|Δt/2),  ω/|ω| · sin(|ω|Δt/2) )</div>
+        <p>This is the <b>Gyro only</b> card. It tracks fast motion perfectly, but it has two problems that no tuning can fix:</p>
+        <ul>
+          <li><b>It doesn't know where it started.</b> It only adds up changes. Press Reset filters and it stays at "level, facing north" forever.</li>
+          <li><b>Bias integrates into drift.</b> A constant bias b becomes an angle error of b·t. 0.5 °/s sounds tiny, but it's 30° off after one minute. White noise also integrates, into a random walk that grows like √t.</li>
+        </ul>
+        <div class="try"><p><b>Try it</b>The board sits still with a 1.5 °/s gyro bias. Watch the Gyro only card turn slowly by itself while the others hold. Then open Calibrate and press "Measure gyro bias" to see the drift stop.</p><button class="btn primary" data-preset="drift">Set up the lab</button></div>
+      </section>
+
+      <section class="chapter" id="tilt">
+        <h2>Tilt from gravity, heading from the field</h2>
+        <p>When the board isn't accelerating, the accelerometer reads only gravity's reaction, the "up" vector seen from the sensor. Rotating (0, 0, 1) into the sensor frame gives a = (−sin θ, sin φ cos θ, cos φ cos θ), and solving backwards:</p>
+        <div class="eq">roll  φ = atan2( ay, az )
+pitch θ = atan2( −ax, √(ay² + az²) )</div>
+        <p>Gravity says nothing about yaw. Rotating the board around vertical leaves (0, 0, 1) unchanged. That's the magnetometer's job. Earth's field points north and dips into the ground, by about 50–60° in Europe. Un-tilt the measured field with φ and θ so it lies in the horizontal plane, then read its direction:</p>
+        <div class="eq">hx = mx·cos θ + my·sin θ·sin φ + mz·sin θ·cos φ
+hy = my·cos φ − mz·sin φ
+yaw ψ = atan2( −hy, hx )                <span class="c">tilt-compensated compass</span></div>
+        <p>This is the <b>Accel + Mag</b> card. It never drifts and finds the right answer instantly from any starting point. It is also jittery, because it passes on every bit of sensor noise. It tilts whenever you accelerate the board sideways, and it swings around when a magnet comes close.</p>
+        <div class="try"><p><b>Try it</b>Add 0.6 g of shaking to the slow wobble. The Accel + Mag card shakes with it because it takes hand acceleration for tilt. The gyro-based filters barely notice.</p><button class="btn primary" data-preset="shake">Set up the lab</button></div>
+        <div class="try"><p><b>Try it</b>Bring a magnet close while the board sits still. The yaw of every filter that uses the magnetometer gets pulled away. The ones with slow gains get pulled less.</p><button class="btn primary" data-preset="magnet">Set up the lab</button></div>
+      </section>
+
+      <section class="chapter" id="complementary">
+        <h2>Complementary filter</h2>
+        <p>The simplest fix: trust the gyro for fast changes and the accel/mag reference for slow ones. Each sample, propagate with the gyro, then nudge a small fraction of the way toward the absolute reference:</p>
+        <div class="eq">q_pred = q ⊗ exp(ω·Δt / 2)                <span class="c">gyro step</span>
+q_ref  = from_euler( φ_acc, θ_acc, ψ_mag ) <span class="c">absolute reference</span>
+q      = normalise( α·q_pred + (1 − α)·q_ref )
+
+α = τ / (τ + Δt)        crossover frequency f_c = 1 / (2π τ)</div>
+        <p>That one line is a <b>high-pass filter on the gyro</b> plus a <b>low-pass filter on the reference</b>, and their sum is exactly 1 at every frequency. That's where the name "complementary" comes from. Below f<sub>c</sub> the result follows the accelerometer and magnetometer. Above it, the result follows the gyro.</p>
+        <ul>
+          <li><b>τ small</b> (0.05 s): follows the reference closely, so it's noisy and easily fooled by shaking.</li>
+          <li><b>τ large</b> (5 s): smooth and resistant to shaking, but slow to correct gyro drift, and slow to recover after a reset.</li>
+          <li>At 100 Hz with τ = 0.5 s, α = 0.980. The classic "0.98" in hobby code is this same filter with τ = 0.5 s.</li>
+        </ul>
+        <div class="try"><p><b>Try it</b>Wobble with some shaking and a 1 °/s bias. Drag τ in Tune filters from 0.05 to 5 s and watch the Complementary line in the roll plot go from noisy to smooth, and the error number go through a minimum.</p><button class="btn primary" data-preset="comp">Set up the lab</button></div>
+      </section>
+
+      <section class="chapter" id="mahony">
+        <h2>Mahony: a PI controller on orientation</h2>
+        <p>Mahony's filter (2008) treats estimation as a <b>feedback control problem</b>. The "plant" is your current orientation estimate. The "sensor" is the measured gravity and field directions. The "actuator" is an extra rotation rate added to the gyro reading.</p>
+        <ol>
+          <li>Use the current estimate q to predict where gravity should appear in the sensor frame: v̂. Do the same for the magnetic field: ŵ.</li>
+          <li>Compare with the measured, normalised a and m. The <b>cross product</b> of measured and predicted is a vector along the axis you'd rotate around to line them up, with length sin(angle between them). It's a rotation error you can feed back.</li>
+          <li>Feed that error through a PI controller and add the result to the gyro rate.</li>
+        </ol>
+        <div class="eq">e      = (a × v̂) + (m × ŵ)                   <span class="c">rotation error, sensor frame</span>
+∫e    += Ki · e · Δt                          <span class="c">integral term</span>
+ω_corr = ω_gyro + Kp · e + ∫e
+q      = q ⊗ exp(ω_corr · Δt / 2)</div>
+        <ul>
+          <li><b>Kp</b> sets the loop bandwidth: roughly how many rad/s of correction per radian of error. It plays the same role as 1/τ in the complementary filter.</li>
+          <li><b>Ki</b> is the interesting part. A constant gyro bias produces a constant error, and the integral grows until it cancels the bias exactly. So <b>the integral term is a live gyro-bias estimate</b>. Tune filters shows it.</li>
+          <li>Like any PI loop, too much Ki relative to Kp makes it oscillate.</li>
+        </ul>
+        <div class="try"><p><b>Try it</b>Turntable spin with a 2 °/s bias and Ki = 0. Mahony settles with a steady error, because a P controller always needs some error to push back against a constant disturbance. Raise Ki to about 0.1. The bias estimate under Mahony in Tune filters settles at the simulated bias, about 1.2, −1.0 and 1.2 °/s on x, y and z (2 °/s in total), and the error drops to a fraction of a degree.</p><button class="btn primary" data-preset="mahony">Set up the lab</button></div>
+      </section>
+
+      <section class="chapter" id="madgwick">
+        <h2>Madgwick: gradient descent</h2>
+        <p>Madgwick's filter (2010) asks a different question: which quaternion would make the predicted gravity and field match the measurements best? It writes that as an error function f(q) and takes one step of gradient descent per sample.</p>
+        <div class="eq">f(q)   = [ q* ⊗ (0,0,0,1) ⊗ q − a ;  q* ⊗ (0,bx,0,bz) ⊗ q − m ]
+∇f     = Jᵀ(q) · f(q)                         <span class="c">J = Jacobian of f</span>
+q̇      = ½ q ⊗ (0, ω) − β · ∇f / |∇f|
+q     += q̇ · Δt,  then normalise</div>
+        <p>The reference field (bx, 0, bz) is rebuilt every step from the measurement rotated into the world frame. That way the filter learns your local dip angle and never needs to know it in advance.</p>
+        <ul>
+          <li>The gradient is <b>normalised</b>, so the correction is always β in size, no matter how big the error is. That's different from Mahony, whose correction grows with the error.</li>
+          <li>β has units of rad/s: the largest gyro error it can cancel. Madgwick suggests β = √(3/4)·(gyro error). 0.1 is a good start for most MEMS gyros.</li>
+          <li>Big β: fast convergence, but noisy and sensitive to shaking. Small β: smooth, but slow to recover. Press Reset filters and compare how long β = 0.03 and β = 0.3 take to find north.</li>
+          <li>This basic version has no integral term, so a constant gyro bias leaves a small steady error. Calibrate the bias first.</li>
+        </ul>
+        <div class="try"><p><b>Try it</b>All filters start at level and facing north, while the board actually points 30° west. Watch how quickly each one finds the true yaw.</p><button class="btn primary" data-preset="converge">Set up the lab</button></div>
+      </section>
+
+      <section class="chapter" id="kalman">
+        <h2>Kalman filter</h2>
+        <p>A Kalman filter tracks not just an estimate but how <b>uncertain</b> that estimate is, and uses the uncertainty to decide how much to trust each new measurement. The version here is the classic per-angle filter found in many hobby projects. It tracks two states for each of roll, pitch and yaw: the angle and the gyro bias.</p>
+        <div class="eq"><span class="c">state x = [angle, bias]     covariance P (2×2)</span>
+
+predict   angle += Δt · (ω − bias)
+          P     += Δt · (…) + Q            <span class="c">uncertainty grows</span>
+
+update    y = z − angle                   <span class="c">z: accel angle or mag yaw</span>
+          S = P₀₀ + R
+          K = [P₀₀, P₁₀] / S              <span class="c">Kalman gain</span>
+          x += K · y
+          P -= K · (row 0 of P)           <span class="c">uncertainty shrinks</span></div>
+        <ul>
+          <li><b>Q angle</b> and <b>Q bias</b> say how much you expect the true angle and the bias to wander between samples (process noise).</li>
+          <li><b>R</b> says how noisy the measurement z is. Only the ratio Q/R really matters: raising R makes the filter trust the gyro more, like raising τ.</li>
+          <li>For fixed Q and R, the gain K settles to a constant. A steady-state Kalman filter is then a complementary filter with a bias estimator, with its gains chosen from noise statistics instead of by hand.</li>
+          <li><b>The catch:</b> this version runs three independent 1-D filters on Euler angles, feeding body-frame rates into world-frame angles. That's only right when the board is close to level. Near pitch ±90° it breaks down. The error-state filter in the next chapter fixes this.</li>
+        </ul>
+        <div class="try"><p><b>Try it</b>Loop the loop: the board pitches all the way over. Every card's R and Y numbers jump as it passes vertical, because Euler angles break there. The quaternion filters (Complementary, Mahony, Madgwick) keep tracking the real orientation. The Kalman card loses it, and its error climbs past 20°.</p><button class="btn primary" data-preset="loop">Set up the lab</button></div>
+      </section>
+
+      <section class="chapter" id="eskf">
+        <h2>Error-state Kalman filter (ESKF)</h2>
+        <p>The per-angle Kalman filter put the Kalman machinery on the wrong quantity. Euler angles are large, coupled and singular. The ESKF splits the problem in two:</p>
+        <ul>
+          <li>A <b>nominal state</b>: the quaternion q and gyro bias b. The gyro moves it forward exactly, with no approximation, the same way the Gyro only card does.</li>
+          <li>An <b>error state</b> δx = [δθ, δb]: the small rotation and bias error between the nominal state and the truth. This is the only thing the Kalman filter estimates.</li>
+        </ul>
+        <p>The error is always small, so the linear Kalman equations are accurate for it. It is also three plain angles, with no singularity and no unit-length constraint. After every measurement, the estimated error is folded into the nominal state and reset to zero.</p>
+        <div class="eq"><span class="c">nominal     true q = q ⊗ Exp(δθ),   true bias = b + δb</span>
+predict     q ← q ⊗ Exp((ω − b)·Δt)
+            Φ = [ I − [ω̂Δt]×   −I·Δt ]      P ← Φ P Φᵀ + Q
+                [ 0             I    ]       Q = diag(σg²·Δt, σb²·Δt)
+
+gravity     ĝ = Rᵀ·(0, 0, 1)                <span class="c">predicted "up" in the sensor frame</span>
+            y = a/|a| − ĝ                   H = [ [ĝ]×   0 ]
+            K = P Hᵀ (H P Hᵀ + σa²·I)⁻¹
+            δx = K·y,   P ← (I − K H)·P
+
+heading     z = atan2(m_world.y, m_world.x) H = [ −ĝᵀ   0 ]   <span class="c">rotation about vertical only</span>
+
+inject      q ← q ⊗ Exp(δθ),   b ← b + δb,   δx ← 0</div>
+        <p>Why this is the standard in drones and phones:</p>
+        <ul>
+          <li><b>Bias comes for free.</b> The −I·Δt block in Φ says "a bias error turns into an attitude error over time". The covariance P learns that link. When gravity reveals a tilt error, part of the correction goes into b.</li>
+          <li><b>It knows how sure it is.</b> √P gives a 1-σ uncertainty per axis, shown in Tune filters. Turn off the magnetometer and watch yaw σ grow without limit: the filter knows heading is no longer observable.</li>
+          <li><b>Each sensor fixes only what it can measure.</b> H for gravity, [ĝ]×, has no component along vertical, so the accelerometer never touches yaw. The heading update only touches yaw, so a magnet can never tilt the board.</li>
+          <li><b>New sensors are just another H.</b> Barometer, GPS velocity or a camera each plug into the same predict/update loop.</li>
+        </ul>
+        <p>Your ESP32 runs this at 500 Hz (1 kHz with external I2C pull-ups) with a few extra rules. It skips the gravity update when |a| is more than 0.15 g away from 1 g, because the board is accelerating. It skips the heading update when the field strength changes by more than 15%, or the field's angle to gravity moves more than 6°, which means a magnet or iron nearby. Both references adapt over about 5 s, so a slowly approaching magnet can't drag them along. In the magnet test that gate cuts the ESKF's peak heading error from 48° to 16°. It predicts on every gyro sample and corrects with gravity at 100 Hz, using the mean of the accel samples since the last correction.</p>
+        <p>Tuning: σg is the gyro noise density. The defaults, 0.01 °/s/√Hz and 0.0005 °/s/√s, come from a 2-hour Allan variance recording of this board (see the Allan variance chapter), raised about 3× to cover vibration and scale errors. σb is how fast the bias wanders. If the filter's σg is far from the real sensor's noise, it gets worse either way: try the Gyro noise slider in the Simulated board tab at 0.3 °/s and watch the ESKF error rise. σa and σψ are how much to trust gravity and heading. Lower σa means faster tilt correction but more sensitivity to motion that sneaks under the gate.</p>
+        <div class="try"><p><b>Try it</b>Turntable spin with a 2 °/s gyro bias and 0.4 g of shaking. Watch the ESKF's bias estimate settle on the true value, and its σ shrink, while the accel gate stops shaking from tilting it. Then untick Use magnetometer and watch yaw σ grow.</p><button class="btn primary" data-preset="eskf">Set up the lab</button></div>
+      </section>
+
+      <section class="chapter" id="calibration">
+        <h2>Calibration</h2>
+        <p>Good calibration helps every algorithm more than any amount of tuning. Three calibrations matter, all in the Calibrate tab:</p>
+        <div class="cols2">
+          <div class="box"><h3>Gyro bias</h3><p>Average the gyro for a few seconds while still and subtract it. Bias changes with temperature, so real devices redo this at every power-up, or keep estimating it online the way Mahony's integral term does.</p></div>
+          <div class="box"><h3>Hard iron</h3><p>Magnetised parts on the board add a constant vector to every reading. Rotating through all directions traces a sphere whose centre is shifted. The centre is the offset: (max + min) / 2 on each axis.</p></div>
+          <div class="box"><h3>Soft iron</h3><p>Nearby iron bends the field, stretching the sphere into an ellipsoid. Scaling each axis so its radius matches the average is a first-order fix. A full fit uses a 3×3 matrix.</p></div>
+          <div class="box"><h3>Axis alignment</h3><p>The two chips may not share axes. The angle between gravity and the field (the dip angle + 90°) is a property of where you are, not of how you hold the board. If it changes as you rotate, the axes are mapped wrong.</p></div>
+        </div>
+        <div class="try"><p><b>Try it</b>Aggressive handling with a 35 µT hard-iron offset. Yaw estimates from every magnetometer-based filter wobble badly. Run the 20 s magnetometer calibration in the Calibrate tab and watch them settle.</p><button class="btn primary" data-preset="hardiron">Set up the lab</button></div>
+      </section>
+
+      <section class="chapter wide" id="allan">
+        <h2>Allan variance: measuring your sensor's noise</h2>
+        <div style="max-width:72ch;display:grid;gap:16px">
+          <p>Every noise value in the filters so far was a guess. Allan variance measures them. Leave the board perfectly still for an hour or more, record the gyro, then ask one question for every averaging time τ: <b>if I average the gyro over τ seconds, how much do neighbouring averages disagree?</b></p>
+          <div class="eq">σ²(τ) = ½ · ⟨ (ȳₖ₊₁ − ȳₖ)² ⟩          <span class="c">ȳₖ = mean of the k-th chunk of length τ</span></div>
+          <p>Short averages are dominated by white noise, which shrinks as you average longer. Very long averages get worse again, because the bias itself wanders. In between is the best you can ever do. Each noise process has its own slope on a log-log plot, so you can read them off one by one:</p>
+          <div class="tbl"><table>
+            <thead><tr><th>Slope</th><th>Noise</th><th>Read it</th><th>Goes into</th></tr></thead>
+            <tbody>
+              <tr><td class="num">−1</td><td>Quantization</td><td>Very short τ only</td><td>Usually ignored</td></tr>
+              <tr><td class="num">−½</td><td><b>White noise</b> N (angle random walk)</td><td>σ at τ = 1 s on the −½ line</td><td>ESKF σ gyro, Kalman Q angle</td></tr>
+              <tr><td class="num">0</td><td><b>Bias instability</b> B</td><td>Curve minimum ÷ 0.664</td><td>How well bias can ever be known</td></tr>
+              <tr><td class="num">+½</td><td><b>Rate random walk</b> K</td><td>σ at τ = 3 s on the +½ line</td><td>ESKF σ bias walk, Kalman Q bias, Mahony Ki</td></tr>
+              <tr><td class="num">+1</td><td>Rate ramp</td><td>Long τ</td><td>Usually temperature drift</td></tr>
+            </tbody>
+          </table></div>
+          <p>Unit conversions people quote: N in °/s/√Hz × 60 = °/√h, and B in °/s × 3600 = °/h.</p>
+        </div>
+        <div class="gimbal">
+          <div class="panel">
+            <div class="panel-head">
+              <div class="seg" role="group" aria-label="Allan data">
+                <button id="allan-demo" aria-pressed="true">Simulated sensor</button>
+                <button id="allan-mine" aria-pressed="false">Your recording</button>
+              </div>
+              <div class="seg" role="group" aria-label="Sensor" id="allan-kind" hidden>
+                <button data-kind="g" aria-pressed="true">Gyro</button>
+                <button data-kind="a" aria-pressed="false">Accel</button>
+              </div>
+            </div>
+            <canvas id="allan-chart" style="width:100%;height:300px;display:block" aria-label="Allan deviation versus averaging time, log-log"></canvas>
+            <div class="legend" id="allan-legend" style="pointer-events:none"></div>
+          </div>
+          <div class="panel">
+            <div id="allan-demo-ctl" class="group">
+              <p class="hint">An hour of a simulated still gyro at 100 Hz. Move one slider at a time and watch which part of the curve it moves. The bias wander here is a slow random process that also bends the curve upward, so the fitted K reads higher than its slider. Real sensors fool you the same way, which is why K is the least trusted number.</p>
+              <div id="allan-sliders"></div>
+            </div>
+            <div id="allan-mine-ctl" class="group" hidden>
+              <p class="hint">Load the <code>_adev.csv</code> file that <code>allan_analyze.py</code> writes next to your recording.</p>
+              <div class="row"><input type="file" id="allan-file" accept=".csv,text/csv"></div>
+              <p class="derived" id="allan-file-out">No file loaded yet.</p>
+            </div>
+            <div class="tbl"><table id="allan-fit"><thead><tr><th>Axis</th><th>White noise N</th><th>Bias instab. B</th><th>Rate RW K</th></tr></thead><tbody></tbody></table></div>
+          </div>
+        </div>
+        <div style="max-width:72ch;display:grid;gap:12px">
+          <h3>Recording your own</h3>
+          <ol>
+            <li>Leave the board powered for 15 minutes first, so its temperature settles. A warming chip shows up as a +1 slope.</li>
+            <li>Put it on something that won't move: a heavy book on the floor works better than the desk you type on. Every bump of the table is a rotation the gyro will faithfully record.</li>
+            <li>Close the lab's USB connection (Wi-Fi is fine) and run <code>python tools/allan/allan_log.py --hours 2</code> from the firmware folder. It finds the ESP32's port and keeps the computer awake while recording.</li>
+            <li>Afterwards run <code>allan_analyze.py</code> on the CSV. It prints N, B and K per axis, suggests ESKF settings, and writes the <code>_adev.csv</code> to load here.</li>
+          </ol>
+          <p>The longer you record, the further right the curve reaches. K is read from the longest averages, so it is the least certain number. With 2 hours, expect it to be within about a factor of 1.5.</p>
+          <h3>What this board measured</h3>
+          <p>2 hours, 719,891 samples at 100 Hz, temperature 26.0 to 26.5 °C.</p>
+          <div class="tbl"><table>
+            <thead><tr><th>Axis</th><th>White noise N</th><th>Bias instability B</th><th>Rate random walk K</th></tr></thead>
+            <tbody>
+              <tr><td>Gyro X</td><td class="num">0.0032 °/s/√Hz</td><td class="num">3.3 °/h</td><td>Not reached</td></tr>
+              <tr><td>Gyro Y</td><td class="num">0.0033 °/s/√Hz</td><td class="num">6.0 °/h</td><td class="num">1.3·10⁻⁴ °/s/√s</td></tr>
+              <tr><td>Gyro Z</td><td class="num">0.0030 °/s/√Hz</td><td class="num">8.3 °/h</td><td>Not reached</td></tr>
+              <tr><td>Accel X / Y / Z</td><td class="num">77 / 77 / 73 µg/√Hz</td><td class="num">26 / 25 / 41 µg</td><td>—</td></tr>
+            </tbody>
+          </table></div>
+          <p>Two things to notice. The white noise is the same on all three gyro axes and close to the datasheet, so that number is solid. The bias is not: gyro Y's offset crept from −0.16 to −0.26 °/s over 3¼ hours while the temperature barely moved. That steady creep is why Y and Z reach their minimum early and then climb. The filter doesn't need to know where it comes from. It only needs σ bias walk large enough to follow it, and the accelerometer and magnetometer keep correcting the estimate.</p>
+          <p>The simulated board's default Gyro noise of 0.03 °/s per sample is this board's N at 100 Hz: 0.0033 × √100.</p>
+        </div>
+      </section>
+
+      <section class="chapter wide" id="control">
+        <h2>Closing the loop: a PID gimbal</h2>
+        <div style="max-width:72ch;display:grid;gap:16px">
+          <p>Estimating orientation is usually the first half of a job. The second half is <b>control</b>: using that estimate to drive a motor. Here your board is the base of a one-axis camera gimbal. A motor between base and platform tries to keep the platform level while the base rolls with the lab's board.</p>
+          <p>The controller knows the motor's angle exactly from an encoder, but it only knows the base angle through the roll estimate of the filter you choose. So <b>every estimation error turns directly into platform error</b>. Feed it Accel + Mag and the platform jitters. Feed it Gyro only and it slowly tilts.</p>
+          <div class="eq">platform angle (estimated)  φ̂ = roll_est + θ_motor
+error                       e  = setpoint − φ̂
+torque                      u  = Kp·e + Ki·∫e dt − Kd·dφ̂/dt   <span class="c">clamped to motor limit</span>
+platform dynamics           φ̈  = u − c·(φ̇ − β̇)               <span class="c">bearing friction drags it with the base</span></div>
+          <ul>
+            <li><b>Kp</b> stiffness: how hard it pushes back per degree of error. Too much and it overshoots and rings.</li>
+            <li><b>Kd</b> damping: resists fast changes. It differentiates the estimate, so it amplifies estimator noise too.</li>
+            <li><b>Ki</b> removes steady error against a constant push such as friction. Too much makes slow oscillations, and the integral is clamped to stop windup.</li>
+          </ul>
+        </div>
+        <div class="gimbal">
+          <div class="panel">
+            <canvas id="gimbal-canvas" aria-label="Side view of a one-axis gimbal"></canvas>
+            <canvas class="chart mid" id="gimbal-chart" aria-label="Platform angle and base angle over time"></canvas>
+            <div class="legend" style="pointer-events:none">
+              <button aria-pressed="true"><span class="sw" style="background:var(--accent)"></span>Platform (true)</button>
+              <button aria-pressed="true"><span class="sw" style="background:var(--muted)"></span>Base roll</button>
+              <button aria-pressed="true"><span class="sw" style="background:var(--ink)"></span>Setpoint</button>
+            </div>
+          </div>
+          <div class="panel">
+            <div class="row"><label for="gimbal-src">Base angle from</label><select id="gimbal-src"></select></div>
+            <div id="gimbal-sliders" class="group"></div>
+            <div class="row"><button class="btn" id="gimbal-kick">Kick the platform</button><button class="btn" id="gimbal-reset">Reset gains</button></div>
+            <dl class="kv"><dt>Platform RMS error</dt><dd id="gimbal-err">—</dd><dt>Motor effort</dt><dd id="gimbal-u">—</dd></dl>
+            <p class="hint">Try: pick Accel + Mag and turn up shaking in the Simulated board tab. Then raise Kd and see the noise get worse, not better.</p>
+          </div>
+        </div>
+      </section>
+
+      <section class="chapter" id="hardware">
+        <h2>Your hardware and data stream</h2>
+        <div class="tbl"><table>
+          <thead><tr><th>IMU pin</th><th>ESP32 pin</th><th>Note</th></tr></thead>
+          <tbody>
+            <tr><td>VCC</td><td class="num">3V3</td><td>Not 5 V unless your module has a regulator</td></tr>
+            <tr><td>GND</td><td class="num">GND</td><td></td></tr>
+            <tr><td>SDA</td><td class="num">GPIO 21</td><td>Both chips share the bus: ICM-20600 at 0x68/0x69, AK09918 at 0x0C</td></tr>
+            <tr><td>SCL</td><td class="num">GPIO 22</td><td>400 kHz</td></tr>
+          </tbody>
+        </table></div>
+        <p>The firmware reads the ICM-20600 and runs two filters on CPU core 1 at <b>500 Hz</b>. The AK09918 is read at 100 Hz, its maximum.</p>
+        <p>The rate is limited by the I2C bus. With only the ESP32's internal pull-ups (about 45 kΩ), one 14-byte read takes about 0.77 ms instead of the 0.4 ms that 400 kHz should give, because each clock edge rises slowly. Add 2.2–4.7 kΩ resistors from SDA and SCL to 3.3 V, then set <code>idf.py menuconfig</code> → IMU Lab → rate to 1000 Hz. The ESP32 logs a timing line every 5 s that shows whether it fits.</p>
+        <p>The two filters:</p>
+        <ul>
+          <li><b>Mahony</b> (Kp 1.0, Ki 0.05). In this lab it had the lowest error once there was a gyro bias, and it is about 60 lines of C.</li>
+          <li><b>ESKF</b>, the same math as the ESKF card here. It adds bias estimation, an uncertainty estimate and gating against shaking and magnets.</li>
+        </ul>
+        <p>Every 10 ms, core 0 sends the results two ways. USB gets the same text line as before, at 115200 baud:</p>
+        <div class="eq">$I,t_ms,ax,ay,az,gx,gy,gz,mx,my,mz,temp
+$I,48213,0.0123,-0.0041,1.0012,0.214,-0.153,0.061,21.30,-5.10,-40.20,27.4
+<span class="c">   ms     g      g       g      °/s    °/s    °/s    µT     µT    µT    °C</span></div>
+        <p>Wi-Fi gets a 120-byte binary WebSocket frame at <code>ws://&lt;esp32&gt;/ws</code>, little-endian:</p>
+        <div class="tbl"><table>
+          <thead><tr><th>Bytes</th><th>Field</th><th>Type</th></tr></thead>
+          <tbody>
+            <tr><td class="num">0–3</td><td>"IQ", version 1, flags (bit 0 gravity used, bit 1 heading used, bit 2 mag present, bit 3 gyro clipped, bit 4 accel clipped)</td><td class="num">char·2, u8, u8</td></tr>
+            <tr><td class="num">4–11</td><td>time in ms, fusion loop rate in Hz, slowest loop in µs</td><td class="num">u32, u16, u16</td></tr>
+            <tr><td class="num">12–51</td><td>accel (g), gyro (°/s): means over the last 10 ms. mag (µT), temperature. Raw chip axes.</td><td class="num">f32 × 10</td></tr>
+            <tr><td class="num">52–83</td><td>ESKF quaternion, Mahony quaternion (w, x, y, z)</td><td class="num">f32 × 8</td></tr>
+            <tr><td class="num">84–119</td><td>ESKF bias, Mahony bias (°/s), ESKF 1-σ attitude (°)</td><td class="num">f32 × 9</td></tr>
+          </tbody>
+        </table></div>
+        <p>For low latency, the firmware turns Wi-Fi power saving off and disables Nagle's algorithm (TCP_NODELAY). Each frame goes out as one non-blocking send. If the link is still busy with the previous frame, the new one is skipped instead of queued, so delay never builds up. Weak signal shows up as skipped frames, not as lag.</p>
+        <p>To use the real board:</p>
+        <ol>
+          <li>The ESP32 always runs its own network, <b>IMU-Lab</b> (password <code>imulab1234</code>). Join it and open <code>http://192.168.4.1/</code> for the board's <b>admin page</b>: live orientation, commands, firmware update, the log, and Wi-Fi. There you can save up to 5 other networks. The board joins the strongest one in range, and the page's connection history shows which network it joined and what IP it got, even after a power-off.</li>
+          <li>Flash it: <code>idf.py -p PORT flash monitor</code> (Windows <code>COM4</code>, Linux <code>/dev/ttyUSB0</code>, macOS <code>/dev/cu.usbserial-…</code>). The log prints the address to connect to. Close the monitor with Ctrl+] before using USB mode.</li>
+          <li>Open <code>firmware/tools/imu_lab.html</code> in Chrome or Edge. The hosted viewer blocks both USB and local-network connections.</li>
+          <li>Choose <b>Wi-Fi</b> and enter <code>imu-lab.local</code> (home network) or <code>192.168.4.1</code> (IMU-Lab access point). Or choose <b>USB</b> and pick the CP210x port.</li>
+          <li>Calibrate the magnetometer, check the dip angle is steady, then press <b>Send calibration to ESP32</b> so the on-board filters use it too.</li>
+        </ol>
+        <h3>Updating the firmware over Wi-Fi</h3>
+        <p>Once the board runs on a battery, USB is gone, so new firmware arrives over Wi-Fi instead (OTA, "over the air"). The 4 MB flash holds two firmware slots, <code>ota_0</code> and <code>ota_1</code>. The running firmware receives the new image, writes it into the other slot, and checks it: format, chip type, project name and a SHA-256 hash. Only then does it tell the bootloader to start from the new slot. The old firmware stays untouched, so an upload cut off halfway changes nothing.</p>
+        <p>A firmware that passes every check can still crash at startup. So a new image first boots as <i>pending verify</i>. If it has run for 10 s with its web server up, it marks itself good. If it resets before that, the bootloader goes back to the previous slot. That rule is why a bad update can't lock you out.</p>
+        <ol>
+          <li>Connect the PC to the board's Wi-Fi and run <code>idf.py build</code>.</li>
+          <li>Run <code>python tools/ota.py</code>. It shows what the board runs now, uploads <code>build/blink.bin</code> (about 15 s), waits for the restart, and checks that the board's build id matches the file it sent.</li>
+          <li><code>http://192.168.4.1/version</code> in a browser shows the running version, build id, slot and state at any time.</li>
+        </ol>
+        <p>Changes to the partition table or the bootloader still need USB, because those live outside the app slots.</p>
+      </section>
+
+      <section class="chapter" id="next">
+        <h2>Where to go next</h2>
+        <ul>
+          <li><b>Grow the ESKF:</b> add accelerometer bias as three more states, or a barometer for altitude. Each new sensor needs only its own H and noise value.</li>
+          <li><b>Close the loop on the ESP32:</b> run a PID like the gimbal chapter's on core 1, right after the filter, and drive a servo or motor with it.</li>
+          <li><b>Temperature compensation:</b> the firmware already sends die temperature. Log bias against temperature and fit a line.</li>
+          <li><b>Magnetic declination:</b> magnetic north isn't true north. Look up your local declination and add it to yaw if you need geographic headings.</li>
+          <li><b>Reading:</b> S. Madgwick, "An efficient orientation filter for inertial and inertial/magnetic sensor arrays" (2010). R. Mahony, T. Hamel, J.-M. Pflimlin, "Nonlinear complementary filters on the special orthogonal group" (IEEE TAC, 2008).</li>
+        </ul>
+      </section>
+    </div>
+  </div>
+  <footer class="foot">Built for an ESP32 with ICM-20600 and AK09918 on I2C. Simulation, filters and charts all run in your browser.</footer>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script>
+(() => {
+'use strict';
+const D2R = Math.PI / 180, R2D = 180 / Math.PI;
+const HIST = 1000;            // 10 s at 100 Hz
+const SIM_DT = 0.01;
+
+/* ============ Quaternion math. q = [w,x,y,z] rotates sensor -> world (NWU) ============ */
+const Q = {
+  id: () => [1, 0, 0, 0],
+  mul: (a, b) => [
+    a[0]*b[0] - a[1]*b[1] - a[2]*b[2] - a[3]*b[3],
+    a[0]*b[1] + a[1]*b[0] + a[2]*b[3] - a[3]*b[2],
+    a[0]*b[2] - a[1]*b[3] + a[2]*b[0] + a[3]*b[1],
+    a[0]*b[3] + a[1]*b[2] - a[2]*b[1] + a[3]*b[0]],
+  conj: q => [q[0], -q[1], -q[2], -q[3]],
+  norm(q) { const n = Math.hypot(q[0], q[1], q[2], q[3]) || 1; return [q[0]/n, q[1]/n, q[2]/n, q[3]/n]; },
+  fromRotVec(v) {
+    const a = Math.hypot(v[0], v[1], v[2]);
+    if (a < 1e-12) return Q.norm([1, v[0]/2, v[1]/2, v[2]/2]);
+    const s = Math.sin(a/2) / a;
+    return [Math.cos(a/2), v[0]*s, v[1]*s, v[2]*s];
+  },
+  toRotVec(q) {
+    let [w, x, y, z] = q;
+    if (w < 0) { w = -w; x = -x; y = -y; z = -z; }
+    const s = Math.hypot(x, y, z);
+    if (s < 1e-12) return [2*x, 2*y, 2*z];
+    const a = 2 * Math.atan2(s, w);
+    return [x/s*a, y/s*a, z/s*a];
+  },
+  fromEuler(r, p, y) {
+    const cr = Math.cos(r/2), sr = Math.sin(r/2), cp = Math.cos(p/2), sp = Math.sin(p/2), cy = Math.cos(y/2), sy = Math.sin(y/2);
+    return [cr*cp*cy + sr*sp*sy, sr*cp*cy - cr*sp*sy, cr*sp*cy + sr*cp*sy, cr*cp*sy - sr*sp*cy];
+  },
+  toEuler(q) {
+    const [w, x, y, z] = q;
+    return [
+      Math.atan2(2*(w*x + y*z), 1 - 2*(x*x + y*y)),
+      Math.asin(Math.max(-1, Math.min(1, 2*(w*y - z*x)))),
+      Math.atan2(2*(w*z + x*y), 1 - 2*(y*y + z*z))];
+  },
+  angle(a, b) { const d = Math.abs(a[0]*b[0] + a[1]*b[1] + a[2]*b[2] + a[3]*b[3]); return 2 * Math.acos(Math.min(1, d)); },
+  toSensor(q, v) { const r = Q.mul(Q.mul(Q.conj(q), [0, v[0], v[1], v[2]]), q); return [r[1], r[2], r[3]]; },
+  toWorld(q, v) { const r = Q.mul(Q.mul(q, [0, v[0], v[1], v[2]]), Q.conj(q)); return [r[1], r[2], r[3]]; },
+  yawQ: psi => [Math.cos(psi / 2), 0, 0, Math.sin(psi / 2)],
+};
+
+/* ============ Set zero, for presenting ============
+   The pose you hold the board in when you press "Set zero" becomes the model's neutral pose:
+   level, ESP32 end pointing into the screen. Every later rotation W of the board (about world
+   axes) is shown as the same rotation seen from your side:
+       shown = Y0⁻¹ · q · q0⁻¹ · Y0
+   q0 is the orientation at the moment of zeroing and Y0 its heading. At q = q0 this is the
+   identity; for q = W·q0 it is Y0⁻¹·W·Y0, so tilting toward the screen tilts the model the
+   same way, whichever compass direction you happen to face. */
+/* Cube mode adds two things:
+     mount  q_sc: how the cube sits relative to the IMU chip (cube -> sensor), found by the guided
+            calibration. The cube's own orientation is then q · q_sc.
+     face   a fixed turn of the whole picture, so the model's +X face points out of the screen,
+            toward the audience, while the real cube's +X face points at them too. */
+const zero = { refs: null, follow: true, mount: null, face: 0 };
+const FACE_AUDIENCE = Math.atan2(4.4, -6.6);   // the 3D camera's direction, seen from the model
+const mounted = q => zero.mount ? Q.mul(q, zero.mount) : q;
+const cubeCal = { cap: null, step: 0, u: {}, qRest: null, result: null, msg: '' };
+function headingOf(q) {
+  let v = Q.toWorld(q, [1, 0, 0]);                        // where the board's ESP32 end points
+  if (Math.hypot(v[0], v[1]) < 0.35) v = Q.toWorld(q, [0, 0, -1]);   // board standing up: use the face pointing away from you
+  return Q.yawQ(Math.atan2(v[1], v[0]));
+}
+function makeRef(q) { const Y = headingOf(q); return { pre: Q.conj(Y), post: Q.mul(Q.conj(q), Y) }; }
+function shown(id, q, withFace = true) {
+  let d = mounted(q);
+  const r = zero.refs && zero.refs[id];
+  if (r) d = Q.mul(Q.mul(r.pre, d), r.post);
+  if (!zero.follow) d = Q.mul(Q.yawQ(-Q.toEuler(d)[2]), d);   // tilt only: drop turning
+  if (withFace && zero.face) d = Q.mul(Q.yawQ(zero.face), d);
+  return Q.norm(d);
+}
+
+/* ---- Guided cube calibration ----
+   Each step averages the accelerometer for 1 s while the cube is still. At rest it reads +1 g
+   along "up", so each step gives the up direction u in sensor axes.
+     rest:  Z (cube up) = u_rest. This also absorbs a sloped table and a crooked sensor.
+     tilting the +X face down turns the cube about its +Y axis, so  Y = u_fwd × u_rest
+     tilting it back:                                                Y = u_rest × u_back
+     tipping to the left turns it about -X, so                       X = u_rest × u_left
+     tipping to the right:                                           X = u_right × u_rest
+   Forward/back is unambiguous (the +X face moves), so it decides; left/right checks it. */
+const v3 = {
+  cross: (a, b) => [a[1]*b[2] - a[2]*b[1], a[2]*b[0] - a[0]*b[2], a[0]*b[1] - a[1]*b[0]],
+  dot: (a, b) => a[0]*b[0] + a[1]*b[1] + a[2]*b[2],
+  add: (a, b) => [a[0] + b[0], a[1] + b[1], a[2] + b[2]],
+  scale: (a, k) => [a[0]*k, a[1]*k, a[2]*k],
+  norm(a) { const n = Math.hypot(a[0], a[1], a[2]) || 1; return [a[0]/n, a[1]/n, a[2]/n]; },
+  angle: (a, b) => Math.acos(Math.max(-1, Math.min(1, v3.dot(v3.norm(a), v3.norm(b))))) * R2D,
+};
+function quatFromCols(X, Y, Z) {   // rotation whose matrix columns are X, Y, Z
+  const m = [[X[0], Y[0], Z[0]], [X[1], Y[1], Z[1]], [X[2], Y[2], Z[2]]], t = m[0][0] + m[1][1] + m[2][2];
+  let q;
+  if (t > 0) { const s = Math.sqrt(t + 1) * 2; q = [0.25*s, (m[2][1] - m[1][2])/s, (m[0][2] - m[2][0])/s, (m[1][0] - m[0][1])/s]; }
+  else if (m[0][0] > m[1][1] && m[0][0] > m[2][2]) { const s = Math.sqrt(1 + m[0][0] - m[1][1] - m[2][2]) * 2; q = [(m[2][1] - m[1][2])/s, 0.25*s, (m[0][1] + m[1][0])/s, (m[0][2] + m[2][0])/s]; }
+  else if (m[1][1] > m[2][2]) { const s = Math.sqrt(1 + m[1][1] - m[0][0] - m[2][2]) * 2; q = [(m[0][2] - m[2][0])/s, (m[0][1] + m[1][0])/s, 0.25*s, (m[1][2] + m[2][1])/s]; }
+  else { const s = Math.sqrt(1 + m[2][2] - m[0][0] - m[1][1]) * 2; q = [(m[1][0] - m[0][1])/s, (m[0][2] + m[2][0])/s, (m[1][2] + m[2][1])/s, 0.25*s]; }
+  return Q.norm(q);
+}
+function nearestAxis(v) {   // "sensor −Y, 2.1° off"
+  let best = 0; for (let i = 1; i < 3; i++) if (Math.abs(v[i]) > Math.abs(v[best])) best = i;
+  return `sensor ${v[best] >= 0 ? '+' : '−'}${'XYZ'[best]}, ${(Math.acos(Math.min(1, Math.abs(v[best]))) * R2D).toFixed(1)}° off`;
+}
+function solveCube(u) {   // u: {rest, fwd, back, left, right} unit "up" vectors in sensor axes
+  const warn = [], Z = u.rest;
+  const Yf = v3.norm(v3.cross(u.fwd, Z)), Yb = v3.norm(v3.cross(Z, u.back));
+  if (v3.angle(Yf, Yb) > 35) warn.push(`Leaning forward and back disagree by ${v3.angle(Yf, Yb).toFixed(0)}°. Did you tip the +X face both times, and hold still?`);
+  let Y = v3.norm(v3.add(Yf, Yb));
+  let X = v3.norm(v3.cross(Y, Z));
+  const Xl = v3.norm(v3.cross(Z, u.left)), Xr = v3.norm(v3.cross(u.right, Z)), Xlr = v3.norm(v3.add(Xl, Xr));
+  const agree = v3.angle(X, Xlr);
+  if (agree < 30) X = v3.norm(v3.add(X, Xlr));
+  else if (agree > 150) warn.push('Left and right look swapped (left means your left while standing behind the cube, looking the way +X points). I used the forward and back steps only.');
+  else warn.push(`Left/right disagree with forward/back by ${agree.toFixed(0)}°. I used the forward and back steps only.`);
+  X = v3.norm(v3.add(X, v3.scale(Z, -v3.dot(X, Z))));   // exactly perpendicular to up
+  Y = v3.cross(Z, X);
+  return { q: quatFromCols(X, Y, Z), X, Y, Z, agree, warn };
+}
+const wrapPi = a => { while (a > Math.PI) a -= 2*Math.PI; while (a < -Math.PI) a += 2*Math.PI; return a; };
+const wrap180 = a => { while (a > 180) a -= 360; while (a < -180) a += 360; return a; };
+const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
+let spare = null;
+function gauss() {
+  if (spare !== null) { const s = spare; spare = null; return s; }
+  let u = 0, v = 0; while (u === 0) u = Math.random(); v = Math.random();
+  const r = Math.sqrt(-2 * Math.log(u)); spare = r * Math.sin(2*Math.PI*v); return r * Math.cos(2*Math.PI*v);
+}
+
+/* Roll & pitch from gravity, yaw from tilt-compensated magnetometer. Returns radians or null. */
+function amEuler(a, m, useMag, yawFallback) {
+  if (Math.hypot(a[0], a[1], a[2]) < 1e-6) return null;
+  const roll = Math.atan2(a[1], a[2]);
+  const pitch = Math.atan2(-a[0], Math.hypot(a[1], a[2]));
+  let yaw = yawFallback;
+  if (useMag && Math.hypot(m[0], m[1], m[2]) > 1e-6) {
+    const sr = Math.sin(roll), cr = Math.cos(roll), sp = Math.sin(pitch), cp = Math.cos(pitch);
+    const hx = m[0]*cp + m[1]*sp*sr + m[2]*sp*cr;
+    const hy = m[1]*cr - m[2]*sr;
+    yaw = Math.atan2(-hy, hx);
+  }
+  return [roll, pitch, yaw];
+}
+
+/* ============ The six algorithms. update(gyro rad/s, accel g, mag uT, dt s, params) ============ */
+class GyroOnly {
+  constructor() { this.q = Q.id(); }
+  reset(q) { this.q = q.slice(); }
+  update(g, a, m, dt) { this.q = Q.norm(Q.mul(this.q, Q.fromRotVec([g[0]*dt, g[1]*dt, g[2]*dt]))); }
+}
+class AccelMag {
+  constructor() { this.q = Q.id(); }
+  reset(q) { this.q = q.slice(); }
+  update(g, a, m, dt, P) { const e = amEuler(a, m, P.useMag, 0); if (e) this.q = Q.fromEuler(e[0], e[1], e[2]); }
+}
+class Complementary {
+  constructor() { this.q = Q.id(); }
+  reset(q) { this.q = q.slice(); }
+  update(g, a, m, dt, P) {
+    const qp = Q.norm(Q.mul(this.q, Q.fromRotVec([g[0]*dt, g[1]*dt, g[2]*dt])));
+    const e = amEuler(a, m, P.useMag, Q.toEuler(qp)[2]);
+    if (!e) { this.q = qp; return; }
+    let qr = Q.fromEuler(e[0], e[1], e[2]);
+    if (qp[0]*qr[0] + qp[1]*qr[1] + qp[2]*qr[2] + qp[3]*qr[3] < 0) qr = qr.map(v => -v);
+    const al = P.tau / (P.tau + dt);
+    this.q = Q.norm(qp.map((v, i) => al*v + (1 - al)*qr[i]));
+  }
+}
+class Mahony {
+  constructor() { this.q = Q.id(); this.ib = [0, 0, 0]; }
+  reset(q) { this.q = q.slice(); this.ib = [0, 0, 0]; }
+  update(g, a, m, dt, P) {
+    const [q0, q1, q2, q3] = this.q;
+    let gx = g[0], gy = g[1], gz = g[2];
+    const an = Math.hypot(a[0], a[1], a[2]);
+    if (an > 1e-6) {
+      const ax = a[0]/an, ay = a[1]/an, az = a[2]/an;
+      const vx = q1*q3 - q0*q2, vy = q0*q1 + q2*q3, vz = q0*q0 - 0.5 + q3*q3;   // half of predicted gravity
+      let ex = ay*vz - az*vy, ey = az*vx - ax*vz, ez = ax*vy - ay*vx;
+      const mn = Math.hypot(m[0], m[1], m[2]);
+      if (P.useMag && mn > 1e-6) {
+        const mx = m[0]/mn, my = m[1]/mn, mz = m[2]/mn;
+        const hx = 2*(mx*(0.5 - q2*q2 - q3*q3) + my*(q1*q2 - q0*q3) + mz*(q1*q3 + q0*q2));
+        const hy = 2*(mx*(q1*q2 + q0*q3) + my*(0.5 - q1*q1 - q3*q3) + mz*(q2*q3 - q0*q1));
+        const bx = Math.hypot(hx, hy);
+        const bz = 2*(mx*(q1*q3 - q0*q2) + my*(q2*q3 + q0*q1) + mz*(0.5 - q1*q1 - q2*q2));
+        const wx = bx*(0.5 - q2*q2 - q3*q3) + bz*(q1*q3 - q0*q2);
+        const wy = bx*(q1*q2 - q0*q3) + bz*(q0*q1 + q2*q3);
+        const wz = bx*(q0*q2 + q1*q3) + bz*(0.5 - q1*q1 - q2*q2);
+        ex += my*wz - mz*wy; ey += mz*wx - mx*wz; ez += mx*wy - my*wx;
+      }
+      ex *= 2; ey *= 2; ez *= 2;
+      if (P.ki > 0) { this.ib[0] += P.ki*ex*dt; this.ib[1] += P.ki*ey*dt; this.ib[2] += P.ki*ez*dt; }
+      else this.ib = [0, 0, 0];
+      gx += this.ib[0] + P.kp*ex; gy += this.ib[1] + P.kp*ey; gz += this.ib[2] + P.kp*ez;
+    }
+    this.q = Q.norm(Q.mul(this.q, Q.fromRotVec([gx*dt, gy*dt, gz*dt])));
+  }
+}
+class Madgwick {
+  constructor() { this.q = Q.id(); }
+  reset(q) { this.q = q.slice(); }
+  update(g, a, m, dt, P) {
+    let [q0, q1, q2, q3] = this.q;
+    const gx = g[0], gy = g[1], gz = g[2];
+    let qD0 = 0.5*(-q1*gx - q2*gy - q3*gz);
+    let qD1 = 0.5*( q0*gx + q2*gz - q3*gy);
+    let qD2 = 0.5*( q0*gy - q1*gz + q3*gx);
+    let qD3 = 0.5*( q0*gz + q1*gy - q2*gx);
+    const an = Math.hypot(a[0], a[1], a[2]);
+    const mn = Math.hypot(m[0], m[1], m[2]);
+    if (an > 1e-6) {
+      const ax = a[0]/an, ay = a[1]/an, az = a[2]/an;
+      let s0, s1, s2, s3;
+      if (P.useMag && mn > 1e-6) {
+        const mx = m[0]/mn, my = m[1]/mn, mz = m[2]/mn;
+        const _2q0mx = 2*q0*mx, _2q0my = 2*q0*my, _2q0mz = 2*q0*mz, _2q1mx = 2*q1*mx;
+        const _2q0 = 2*q0, _2q1 = 2*q1, _2q2 = 2*q2, _2q3 = 2*q3, _2q0q2 = 2*q0*q2, _2q2q3 = 2*q2*q3;
+        const q0q0 = q0*q0, q0q1 = q0*q1, q0q2 = q0*q2, q0q3 = q0*q3, q1q1 = q1*q1, q1q2 = q1*q2, q1q3 = q1*q3, q2q2 = q2*q2, q2q3 = q2*q3, q3q3 = q3*q3;
+        const hx = mx*q0q0 - _2q0my*q3 + _2q0mz*q2 + mx*q1q1 + _2q1*my*q2 + _2q1*mz*q3 - mx*q2q2 - mx*q3q3;
+        const hy = _2q0mx*q3 + my*q0q0 - _2q0mz*q1 + _2q1mx*q2 - my*q1q1 + my*q2q2 + _2q2*mz*q3 - my*q3q3;
+        const _2bx = Math.hypot(hx, hy);
+        const _2bz = -_2q0mx*q2 + _2q0my*q1 + mz*q0q0 + _2q1mx*q3 - mz*q1q1 + _2q2*my*q3 - mz*q2q2 + mz*q3q3;
+        const _4bx = 2*_2bx, _4bz = 2*_2bz;
+        const fgx = 2*q1q3 - _2q0q2 - ax, fgy = 2*q0q1 + _2q2q3 - ay, fgz = 1 - 2*q1q1 - 2*q2q2 - az;
+        const fmx = _2bx*(0.5 - q2q2 - q3q3) + _2bz*(q1q3 - q0q2) - mx;
+        const fmy = _2bx*(q1q2 - q0q3) + _2bz*(q0q1 + q2q3) - my;
+        const fmz = _2bx*(q0q2 + q1q3) + _2bz*(0.5 - q1q1 - q2q2) - mz;
+        s0 = -_2q2*fgx + _2q1*fgy - _2bz*q2*fmx + (-_2bx*q3 + _2bz*q1)*fmy + _2bx*q2*fmz;
+        s1 = _2q3*fgx + _2q0*fgy - 4*q1*fgz + _2bz*q3*fmx + (_2bx*q2 + _2bz*q0)*fmy + (_2bx*q3 - _4bz*q1)*fmz;
+        s2 = -_2q0*fgx + _2q3*fgy - 4*q2*fgz + (-_4bx*q2 - _2bz*q0)*fmx + (_2bx*q1 + _2bz*q3)*fmy + (_2bx*q0 - _4bz*q2)*fmz;
+        s3 = _2q1*fgx + _2q2*fgy + (-_4bx*q3 + _2bz*q1)*fmx + (-_2bx*q0 + _2bz*q2)*fmy + _2bx*q1*fmz;
+      } else {
+        const _2q0 = 2*q0, _2q1 = 2*q1, _2q2 = 2*q2, _2q3 = 2*q3, _4q0 = 4*q0, _4q1 = 4*q1, _4q2 = 4*q2, _8q1 = 8*q1, _8q2 = 8*q2;
+        const q0q0 = q0*q0, q1q1 = q1*q1, q2q2 = q2*q2, q3q3 = q3*q3;
+        s0 = _4q0*q2q2 + _2q2*ax + _4q0*q1q1 - _2q1*ay;
+        s1 = _4q1*q3q3 - _2q3*ax + 4*q0q0*q1 - _2q0*ay - _4q1 + _8q1*q1q1 + _8q1*q2q2 + _4q1*az;
+        s2 = 4*q0q0*q2 + _2q0*ax + _4q2*q3q3 - _2q3*ay - _4q2 + _8q2*q1q1 + _8q2*q2q2 + _4q2*az;
+        s3 = 4*q1q1*q3 - _2q1*ax + 4*q2q2*q3 - _2q2*ay;
+      }
+      const sn = Math.hypot(s0, s1, s2, s3);
+      if (sn > 1e-12) { qD0 -= P.beta*s0/sn; qD1 -= P.beta*s1/sn; qD2 -= P.beta*s2/sn; qD3 -= P.beta*s3/sn; }
+    }
+    this.q = Q.norm([q0 + qD0*dt, q1 + qD1*dt, q2 + qD2*dt, q3 + qD3*dt]);
+  }
+}
+class K1 {   // 1-D Kalman: state [angle, bias] in degrees
+  constructor() { this.reset(0); }
+  reset(a) { this.angle = a; this.bias = 0; this.P = [[0, 0], [0, 0]]; this.K = 0; }
+  step(rate, z, dt, Qa, Qb, R, wrap) {
+    const P = this.P;
+    this.angle += dt * (rate - this.bias);
+    P[0][0] += dt * (dt*P[1][1] - P[0][1] - P[1][0] + Qa);
+    P[0][1] -= dt * P[1][1];
+    P[1][0] -= dt * P[1][1];
+    P[1][1] += Qb * dt;
+    if (z !== null) {
+      const S = P[0][0] + R, K0 = P[0][0] / S, K1g = P[1][0] / S;
+      let y = z - this.angle; if (wrap) y = wrap180(y);
+      this.angle += K0 * y; this.bias += K1g * y;
+      const P00 = P[0][0], P01 = P[0][1];
+      P[0][0] -= K0*P00; P[0][1] -= K0*P01; P[1][0] -= K1g*P00; P[1][1] -= K1g*P01;
+      this.K = K0;
+    }
+    if (wrap) this.angle = wrap180(this.angle);
+  }
+}
+class KalmanEuler {
+  constructor() { this.k = [new K1(), new K1(), new K1()]; this.q = Q.id(); }
+  reset(q) { const e = Q.toEuler(q); this.k.forEach((k, i) => k.reset(e[i]*R2D)); this.q = q.slice(); }
+  update(g, a, m, dt, P) {
+    const e = amEuler(a, m, P.useMag, null);
+    this.k[0].step(g[0]*R2D, e ? e[0]*R2D : null, dt, P.qa, P.qb, P.r, true);
+    this.k[1].step(g[1]*R2D, e ? e[1]*R2D : null, dt, P.qa, P.qb, P.r, false);
+    this.k[2].step(g[2]*R2D, (e && P.useMag) ? e[2]*R2D : null, dt, P.qa, P.qb, P.r, true);
+    this.q = Q.fromEuler(this.k[0].angle*D2R, this.k[1].angle*D2R, this.k[2].angle*D2R);
+  }
+}
+
+/* Error-state Kalman filter. Same math as main/fusion.c on the ESP32.
+   Nominal state: q, bg (rad/s). Error state (6): dtheta (body frame), dbg. */
+const STILL_RATE = 4 * D2R, STILL_ACC = 0.05, STILL_JERK = 0.02, STILL_TIME = 0.3;   // same as fusion.c
+const I6 = () => [0, 1, 2, 3, 4, 5].map(i => [0, 1, 2, 3, 4, 5].map(j => i === j ? 1 : 0));
+class ESKF {
+  constructor() { this.reset(Q.id()); }
+  reset(q) {
+    this.q = q.slice(); this.bg = [0, 0, 0]; this.magRef = 0; this.accUsed = false; this.magUsed = false;
+    this.stillT = 0; this.still = false; this.aPrev = null;
+    const a0 = 0.1 * 0.1, b0 = Math.pow(2 * D2R, 2);
+    this.P = I6().map((r, i) => r.map(v => v * (i < 3 ? a0 : b0)));
+  }
+  update(g, a, m, dt, P) {
+    this.predict(g, dt, P);
+    if (P.useMag) this.updateMag(m, P); else this.magUsed = false;
+    this.updateAccel(a, P);
+  }
+  predict(g, dt, P) {
+    const v = [(g[0] - this.bg[0]) * dt, (g[1] - this.bg[1]) * dt, (g[2] - this.bg[2]) * dt];
+    this.q = Q.norm(Q.mul(this.q, Q.fromRotVec(v)));
+    const F = I6();
+    F[0][1] = v[2]; F[0][2] = -v[1]; F[1][0] = -v[2]; F[1][2] = v[0]; F[2][0] = v[1]; F[2][1] = -v[0];
+    F[0][3] = F[1][4] = F[2][5] = -dt;
+    const FP = F.map(r => [0, 1, 2, 3, 4, 5].map(j => r.reduce((s, f, k) => s + f * this.P[k][j], 0)));
+    const Pn = FP.map(r => F.map(fr => r.reduce((s, x, k) => s + x * fr[k], 0)));
+    // Still-detector, part 1: the board must rotate slower than STILL_RATE for STILL_TIME.
+    const rate = Math.hypot(v[0], v[1], v[2]) / dt;
+    if (rate > STILL_RATE) this.stillT = 0; else this.stillT += dt;
+    // Gyro noise plus a scale-error term that grows with rotation speed: a 2 % error at 200 °/s is 4 °/s.
+    const qa = (Math.pow(P.eg * D2R, 2) + Math.pow(P.esf / 100 * rate, 2)) * dt, qb = Math.pow(P.eb * D2R, 2) * dt;
+    for (let i = 0; i < 3; i++) { Pn[i][i] += qa; Pn[i + 3][i + 3] += qb; }
+    this.P = this.sym(Pn);
+  }
+  sym(M) { for (let i = 0; i < 6; i++) for (let j = i + 1; j < 6; j++) { const v = (M[i][j] + M[j][i]) / 2; M[i][j] = M[j][i] = v; } return M; }
+  inject(dx) { this.q = Q.norm(Q.mul(this.q, Q.fromRotVec([dx[0], dx[1], dx[2]]))); for (let i = 0; i < 3; i++) this.bg[i] += dx[3 + i]; }
+  R3() { const [w, x, y, z] = this.q; return [[1 - 2*(y*y + z*z), 2*(x*y - w*z), 2*(x*z + w*y)], [2*(x*y + w*z), 1 - 2*(x*x + z*z), 2*(y*z - w*x)], [2*(x*z - w*y), 2*(y*z + w*x), 1 - 2*(x*x + y*y)]]; }
+  updateAccel(a, P) {
+    this.accUsed = false;
+    const an = Math.hypot(a[0], a[1], a[2]);
+    // Still-detector, part 2: gravity alone reads about 1 g and barely changes from one sample to the next.
+    const jerk = this.aPrev ? Math.hypot(a[0] - this.aPrev[0], a[1] - this.aPrev[1], a[2] - this.aPrev[2]) : 1;
+    this.aPrev = a.slice();
+    if (Math.abs(an - 1) > STILL_ACC || jerk > STILL_JERK) this.stillT = 0;
+    this.still = this.stillT >= STILL_TIME;
+    const ra = this.still ? P.eas : P.ea;     // trust gravity a lot when still, little while moving
+    if (an < 1e-3 || Math.abs(an - 1) > P.egate) return;
+    const z = a.map(v => v / an), R = this.R3(), gh = R[2];
+    const y = [z[0] - gh[0], z[1] - gh[1], z[2] - gh[2]];
+    const H = [[0, -gh[2], gh[1]], [gh[2], 0, -gh[0]], [-gh[1], gh[0], 0]];
+    const PHt = this.P.map(row => H.map(h => row[0]*h[0] + row[1]*h[1] + row[2]*h[2]));
+    const S = H.map((h, r) => [0, 1, 2].map(c => h[0]*PHt[0][c] + h[1]*PHt[1][c] + h[2]*PHt[2][c] + (r === c ? ra * ra : 0)));
+    const Si = inv3(S); if (!Si) return;
+    const K = PHt.map(row => [0, 1, 2].map(c => row[0]*Si[0][c] + row[1]*Si[1][c] + row[2]*Si[2][c]));
+    const dx = K.map(k => k[0]*y[0] + k[1]*y[1] + k[2]*y[2]);
+    for (let i = 0; i < 6; i++) for (let j = 0; j < 6; j++) this.P[i][j] -= K[i][0]*PHt[j][0] + K[i][1]*PHt[j][1] + K[i][2]*PHt[j][2];
+    this.sym(this.P); this.inject(dx); this.accUsed = true;
+  }
+  updateMag(m, P) {
+    this.magUsed = false;
+    const mn = Math.hypot(m[0], m[1], m[2]);
+    if (mn < 1) return;
+    const R = this.R3();
+    // Gate on two things a magnet changes: field strength, and the angle between field and gravity (dip).
+    const dip = Math.acos(clamp((R[2][0]*m[0] + R[2][1]*m[1] + R[2][2]*m[2]) / mn, -1, 1));
+    if (this.magRef <= 0) { this.magRef = mn; this.dipRef = dip; }
+    if (Math.abs(mn / this.magRef - 1) > 0.15 || Math.abs(dip - this.dipRef) > 6 * D2R) return;
+    this.magRef += 0.002 * (mn - this.magRef);
+    this.dipRef += 0.002 * (dip - this.dipRef);
+    const mw = R.map(r => r[0]*m[0] + r[1]*m[1] + r[2]*m[2]);
+    if (Math.hypot(mw[0], mw[1]) < 0.15 * mn) return;
+    const z = Math.atan2(mw[1], mw[0]);
+    const H = [-R[2][0], -R[2][1], -R[2][2]];
+    const PHt = this.P.map(row => row[0]*H[0] + row[1]*H[1] + row[2]*H[2]);
+    const S = H[0]*PHt[0] + H[1]*PHt[1] + H[2]*PHt[2] + Math.pow(P.eh * D2R, 2);
+    const K = PHt.map(v => v / S);
+    for (let i = 0; i < 6; i++) for (let j = 0; j < 6; j++) this.P[i][j] -= K[i] * PHt[j];
+    this.sym(this.P); this.inject(K.map(k => k * z)); this.magUsed = true;
+  }
+  sigmaDeg() { return [0, 1, 2].map(i => Math.sqrt(Math.max(0, this.P[i][i])) * R2D); }
+}
+function inv3(A) {
+  const c00 = A[1][1]*A[2][2] - A[1][2]*A[2][1], c01 = A[1][2]*A[2][0] - A[1][0]*A[2][2], c02 = A[1][0]*A[2][1] - A[1][1]*A[2][0];
+  const det = A[0][0]*c00 + A[0][1]*c01 + A[0][2]*c02; if (Math.abs(det) < 1e-30) return null; const d = 1 / det;
+  return [[c00*d, (A[0][2]*A[2][1] - A[0][1]*A[2][2])*d, (A[0][1]*A[1][2] - A[0][2]*A[1][1])*d],
+          [c01*d, (A[0][0]*A[2][2] - A[0][2]*A[2][0])*d, (A[0][2]*A[1][0] - A[0][0]*A[1][2])*d],
+          [c02*d, (A[0][1]*A[2][0] - A[0][0]*A[2][1])*d, (A[0][0]*A[1][1] - A[0][1]*A[1][0])*d]];
+}
+/* Placeholder for estimates computed on the ESP32 itself (Wi-Fi mode). */
+class OnBoard { constructor() { this.q = Q.id(); } reset() {} update() {} }
+
+const ALGOS = [
+  { id: 'gyro', name: 'Gyro only', token: '--a-gyro', f: new GyroOnly() },
+  { id: 'am', name: 'Accel + Mag', token: '--a-am', f: new AccelMag() },
+  { id: 'comp', name: 'Complementary', token: '--a-comp', f: new Complementary() },
+  { id: 'mahony', name: 'Mahony', token: '--a-mahony', f: new Mahony() },
+  { id: 'madgwick', name: 'Madgwick', token: '--a-madgwick', f: new Madgwick() },
+  { id: 'kalman', name: 'Kalman', token: '--a-kalman', f: new KalmanEuler() },
+  { id: 'eskf', name: 'ESKF', token: '--a-eskf', f: new ESKF() },
+  { id: 'b_eskf', name: 'ESP32 · ESKF', token: '--a-b-eskf', f: new OnBoard(), board: true },
+  { id: 'b_mahony', name: 'ESP32 · Mahony', token: '--a-b-mahony', f: new OnBoard(), board: true },
+];
+const BY = id => ALGOS.find(A => A.id === id);
+const active = () => ALGOS.filter(A => !A.board || app.source === 'wifi');
+
+/* ============ Parameters ============ */
+const PARAM_DEFAULTS = { tau: 0.5, kp: 1.0, ki: 0.05, beta: 0.1, qa: 0.001, qb: 0.003, r: 0.03, eg: 0.01, eb: 0.0005, esf: 0, ea: 0.03, eas: 0.03, eh: 3, egate: 0.15 };
+const SIM_DEFAULTS = { gyroBias: 0.8, gyroNoise: 0.03, gyroScale: 1.5, accNoise: 0.01, shake: 0, magNoise: 0.4, hardIron: 0 };
+const GIMBAL_DEFAULTS = { gkp: 64, gki: 40, gkd: 10, gmax: 300, gsp: 0 };
+const P = Object.assign({ useMag: true }, PARAM_DEFAULTS);
+const S = Object.assign({}, SIM_DEFAULTS);
+const G = Object.assign({}, GIMBAL_DEFAULTS);
+
+/* ============ Simulated board ============ */
+const EARTH = (() => { const B = 44, dip = 52 * D2R; return [B*Math.cos(dip), 0, -B*Math.sin(dip)]; })();
+const BIAS_DIR = [0.62, -0.48, 0.62];
+const HARD_DIR = [0.7, -0.4, 0.59];
+const SCALE_DIR = [1, -0.7, 0.8];
+const HANDLE_MOVE = 15, HANDLE_CYCLE = 25;   // "pick up and put back": 15 s of handling, then 10 s still
+const handleEnv = c => c < HANDLE_MOVE ? Math.pow(Math.sin(Math.PI * c / HANDLE_MOVE), 2) : 0;
+const sim = {
+  t: 0, pattern: 'wobble', magnetT: -1,
+  qTrue(t) {
+    const s = Math.sin;
+    switch (this.pattern) {
+      case 'still': return Q.fromEuler(0, 0, 30*D2R);
+      case 'spin': return Q.fromEuler(8*D2R*s(1.1*t), 6*D2R*s(0.8*t), wrapPi(45*D2R*t));
+      case 'aggressive': return Q.fromEuler((55*s(2.1*t) + 18*s(5.3*t))*D2R, (38*s(1.7*t + 0.5) + 10*s(4.1*t))*D2R, (90*s(0.9*t) + 30*s(3.3*t))*D2R);
+      case 'handle': {
+        const c = t % HANDLE_CYCLE, e = handleEnv(c);
+        return Q.fromEuler(e*55*s(0.9*c)*D2R, e*40*s(0.7*c + 1)*D2R, (30 + e*70*s(0.5*c))*D2R);
+      }
+      case 'loop': return Q.mul(Q.fromEuler(0, 0, 20*D2R), Q.mul(Q.fromRotVec([0, -0.7*t, 0]), Q.fromEuler(6*D2R*s(0.9*t), 0, 0)));
+      default: return Q.fromEuler(30*D2R*s(0.7*t), 20*D2R*s(0.5*t + 1), (30 + 45*s(0.25*t))*D2R);
+    }
+  },
+  step(dt) {
+    const q0 = this.qTrue(this.t), q1 = this.qTrue(this.t + dt);
+    const w = Q.toRotVec(Q.mul(Q.conj(q0), q1)).map(v => v / dt);   // true body rate, rad/s
+    this.t += dt;
+    const t = this.t;
+    const gyro = w.map((v, i) => v*R2D*(1 + SCALE_DIR[i]*S.gyroScale/100) + BIAS_DIR[i]*S.gyroBias + gauss()*S.gyroNoise);
+    const lin = [S.shake*Math.sin(2*Math.PI*3.1*t), S.shake*Math.sin(2*Math.PI*2.3*t + 1), 0.6*S.shake*Math.sin(2*Math.PI*4.7*t + 2)];
+    if (this.pattern === 'handle') {   // the hand also slides the board around: up to 0.35 g of linear acceleration
+      const c = t % HANDLE_CYCLE, e = 0.35 * handleEnv(c);
+      lin[0] += e*Math.sin(2*Math.PI*1.1*c); lin[1] += e*Math.sin(2*Math.PI*0.8*c + 1); lin[2] += 0.6*e*Math.sin(2*Math.PI*1.4*c + 2);
+    }
+    const acc = Q.toSensor(q1, [lin[0], lin[1], 1 + lin[2]]).map(v => v + gauss()*S.accNoise);
+    let Bw = EARTH.slice();
+    if (this.magnetT >= 0) {
+      const env = Math.sin(Math.PI * this.magnetT / 4);
+      Bw = [Bw[0] + 12*env, Bw[1] + 38*env, Bw[2]];
+      this.magnetT += dt; if (this.magnetT > 4) this.magnetT = -1;
+    }
+    const mag = Q.toSensor(q1, Bw).map((v, i) => v + HARD_DIR[i]*S.hardIron + gauss()*S.magNoise);
+    return { dt, acc, gyro, mag, qTrue: q1 };
+  },
+};
+
+/* ============ Calibration & axis mapping ============ */
+const MAP_OPTS = ['+x', '-x', '+y', '-y', '+z', '-z'];
+const cal = { gyroBias: [0, 0, 0], magOff: [0, 0, 0], magScale: [1, 1, 1], map: ['+x', '+y', '+z'], gyroJob: null, magJob: null };
+function mapMag(m) {
+  return cal.map.map(s => { const i = 'xyz'.indexOf(s[1]); return (s[0] === '-' ? -1 : 1) * m[i]; });
+}
+
+/* ============ History buffers ============ */
+class Ring {
+  constructor(n) { this.a = new Float32Array(n); this.n = n; this.i = 0; this.len = 0; }
+  push(v) { const old = this.len === this.n ? this.a[this.i] : 0; this.a[this.i] = v; this.i = (this.i + 1) % this.n; if (this.len < this.n) this.len++; return old; }
+  at(k) { return this.a[(this.i - this.len + k + this.n) % this.n]; }
+  last() { return this.len ? this.at(this.len - 1) : 0; }
+  clear() { this.i = 0; this.len = 0; }
+}
+const hist = {};
+ALGOS.forEach(A => { hist[A.id] = [new Ring(HIST), new Ring(HIST), new Ring(HIST)]; A.err = new Ring(HIST); A.errSum = 0; });
+hist.truth = [new Ring(HIST), new Ring(HIST), new Ring(HIST)];
+const raw = { acc: [0, 1, 2].map(() => new Ring(HIST)), gyro: [0, 1, 2].map(() => new Ring(HIST)), mag: [0, 1, 2].map(() => new Ring(HIST)) };
+const dipRing = new Ring(300), fieldRing = new Ring(300);
+const gh = { phi: new Ring(HIST), beta: new Ring(HIST), sp: new Ring(HIST), err: new Ring(HIST), errSum: 0 };
+function clearHistory() {
+  Object.values(hist).forEach(rs => rs.forEach(r => r.clear()));
+  ALGOS.forEach(A => { A.err.clear(); A.errSum = 0; });
+  Object.values(raw).forEach(rs => rs.forEach(r => r.clear()));
+  ['phi', 'beta', 'sp', 'err'].forEach(k => gh[k].clear()); gh.errSum = 0;
+}
+
+/* ============ App state ============ */
+const app = { source: 'sim', paused: false, axis: 0, hidden: new Set(), lastTruth: null, rateCount: 0, rate: 0, rateT: performance.now(), lastTms: null, board: null };
+
+function resetFilters(q) { ALGOS.forEach(A => A.f.reset(q || Q.id())); }
+
+/* ============ One sample through the whole pipeline ============ */
+function processSample(s) {
+  if (cubeCal.cap) cubeCapture(s);
+  const dt = s.dt;
+  const gyroCal = s.gyro.map((v, i) => v - cal.gyroBias[i]);
+  const magMapped = mapMag(s.mag);
+  const mag = magMapped.map((v, i) => (v - cal.magOff[i]) * cal.magScale[i]);
+  const acc = s.acc;
+
+  if (cal.gyroJob) { const j = cal.gyroJob; s.gyro.forEach((v, i) => j.sum[i] += v); j.n++; if (j.n >= j.target) finishGyroCal(); }
+  if (cal.magJob) { const j = cal.magJob; magMapped.forEach((v, i) => { j.min[i] = Math.min(j.min[i], v); j.max[i] = Math.max(j.max[i], v); }); j.n++; if (j.n >= j.target) finishMagCal(); }
+
+  const gRad = gyroCal.map(v => v * D2R);
+  for (const A of ALGOS) {
+    if (A.board) { if (s.board) A.f.q = s.board[A.id]; }
+    else A.f.update(gRad, acc, mag, dt, P);
+  }
+
+  for (const A of ALGOS) {
+    const e = Q.toEuler(A.f.q);
+    for (let k = 0; k < 3; k++) hist[A.id][k].push(e[k] * R2D);
+    if (s.qTrue) { const err = Q.angle(A.f.q, s.qTrue) * R2D; A.errSum += err*err - A.err.push(err*err); }
+  }
+  if (s.qTrue) { const e = Q.toEuler(s.qTrue); for (let k = 0; k < 3; k++) hist.truth[k].push(e[k] * R2D); }
+  app.lastTruth = s.qTrue || null;
+  for (let k = 0; k < 3; k++) { raw.acc[k].push(acc[k]); raw.gyro[k].push(gyroCal[k]); raw.mag[k].push(mag[k]); }
+
+  const an = Math.hypot(...acc), mn = Math.hypot(...mag);
+  if (an > 0.1 && mn > 1) {
+    const c = (acc[0]*mag[0] + acc[1]*mag[1] + acc[2]*mag[2]) / (an * mn);
+    dipRing.push(Math.acos(clamp(c, -1, 1)) * R2D - 90); fieldRing.push(mn);
+  }
+  gimbalStep(dt, s.qTrue);
+  app.rateCount++;
+}
+
+/* ============ PID gimbal ============ */
+const gim = { phi: 0, dphi: 0, integ: 0, prevMeas: null, betaPrev: null, kick: 0, u: 0 };
+function gimbalStep(dt, qTrue) {
+  const srcId = document.getElementById('gimbal-src').value;
+  const ref = qTrue || ALGOS.find(A => A.id === 'madgwick').f.q;
+  const betaTrue = Q.toEuler(ref)[0];
+  const betaEst = srcId === 'truth' ? betaTrue : Q.toEuler((ALGOS.find(A => A.id === srcId) || ALGOS[4]).f.q)[0];
+  if (gim.betaPrev === null) { gim.betaPrev = betaTrue; gim.phi = betaTrue + 0; }
+  const dBeta = wrapPi(betaTrue - gim.betaPrev) / dt; gim.betaPrev = betaTrue;
+  const thetaM = wrapPi(gim.phi - betaTrue);
+  const meas = wrapPi(betaEst + thetaM);
+  const sp = G.gsp * D2R;
+  const e = wrapPi(sp - meas);
+  const iMax = G.gki > 0 ? G.gmax / G.gki : 0;
+  gim.integ = clamp(gim.integ + e*dt, -iMax, iMax);
+  const dMeas = gim.prevMeas === null ? 0 : wrapPi(meas - gim.prevMeas) / dt; gim.prevMeas = meas;
+  const u = clamp(G.gkp*e + G.gki*gim.integ - G.gkd*dMeas, -G.gmax, G.gmax); gim.u = u;
+  const h = dt / 10;
+  for (let i = 0; i < 10; i++) {
+    const dd = u - 0.5*(gim.dphi - dBeta);
+    gim.dphi += dd*h; gim.phi += gim.dphi*h;
+  }
+  if (gim.kick) { gim.dphi += gim.kick; gim.kick = 0; }
+  gim.phi = wrapPi(gim.phi);
+  gh.phi.push(gim.phi*R2D); gh.beta.push(betaTrue*R2D); gh.sp.push(G.gsp);
+  const pe = wrap180((gim.phi - sp)*R2D); gh.errSum += pe*pe - gh.err.push(pe*pe);
+}
+
+/* ============ Colors from theme tokens ============ */
+const C = {};
+function readTokens() {
+  const cs = getComputedStyle(document.documentElement);
+  ['--ink', '--muted', '--line', '--sunk', '--surface', '--accent', '--ax-x', '--ax-y', '--ax-z', '--truth'].forEach(t => C[t] = cs.getPropertyValue(t).trim());
+  ALGOS.forEach(A => A.color = cs.getPropertyValue(A.token).trim());
+}
+readTokens();
+
+/* ============ 3D views ============ */
+const hasGL = (() => { try { const c = document.createElement('canvas'); return !!(window.WebGLRenderingContext && (c.getContext('webgl') || c.getContext('experimental-webgl'))); } catch (e) { return false; } })();
+function makeTag(text) {   // readable label on a small pill, for the cube faces
+  const c = document.createElement('canvas'); c.width = 256; c.height = 72;
+  const x = c.getContext('2d');
+  x.fillStyle = C['--surface']; x.strokeStyle = C['--line']; x.lineWidth = 3;
+  x.beginPath(); x.roundRect ? x.roundRect(4, 4, 248, 64, 18) : x.rect(4, 4, 248, 64); x.fill(); x.stroke();
+  x.fillStyle = C['--ink']; x.font = '600 40px "IBM Plex Mono", monospace'; x.textAlign = 'center'; x.textBaseline = 'middle'; x.fillText(text, 128, 38);
+  const s = new THREE.Sprite(new THREE.SpriteMaterial({ map: new THREE.CanvasTexture(c), transparent: true, depthWrite: false }));
+  s.scale.set(1.25, 0.35, 1); return s;
+}
+function makeLabel(text, color) {
+  const c = document.createElement('canvas'); c.width = c.height = 64;
+  const x = c.getContext('2d'); x.fillStyle = color; x.font = '600 44px "IBM Plex Mono", monospace'; x.textAlign = 'center'; x.textBaseline = 'middle'; x.fillText(text, 32, 34);
+  const s = new THREE.Sprite(new THREE.SpriteMaterial({ map: new THREE.CanvasTexture(c), transparent: true, depthWrite: false }));
+  s.scale.set(0.55, 0.55, 0.55); return s;
+}
+class View {
+  constructor(host, algo) {
+    this.host = host; this.algo = algo;
+    const r = this.renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+    r.setPixelRatio(Math.min(2, window.devicePixelRatio || 1));
+    r.setClearColor(0x000000, 0);
+    host.appendChild(r.domElement);
+    const sc = this.scene = new THREE.Scene();
+    const cam = this.camera = new THREE.PerspectiveCamera(30, 4/3, 0.1, 100);
+    cam.up.set(0, 0, 1); cam.position.set(-6.6, 4.4, 4.6); cam.lookAt(0.2, 0, -0.35);
+    sc.add(new THREE.HemisphereLight(0xffffff, 0x445566, 0.85));
+    const dl = new THREE.DirectionalLight(0xffffff, 0.75); dl.position.set(-3, 2, 6); sc.add(dl);
+
+    const b = this.board = new THREE.Group();
+    const pcbGeo = new THREE.BoxGeometry(3.0, 1.9, 0.1);
+    b.add(new THREE.Mesh(pcbGeo, new THREE.MeshStandardMaterial({ color: 0x1c5c4f, roughness: 0.6, metalness: 0.1 })));
+    this.edge = new THREE.LineSegments(new THREE.EdgesGeometry(pcbGeo), new THREE.LineBasicMaterial({ color: algo.color }));
+    b.add(this.edge);
+    const box = (w, h, d, x, y, z, color, metal) => { const m = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), new THREE.MeshStandardMaterial({ color, roughness: metal ? 0.35 : 0.7, metalness: metal ? 0.7 : 0.05 })); m.position.set(x, y, z); b.add(m); };
+    box(1.25, 1.0, 0.16, 0.7, 0, 0.13, 0xc4cad1, true);      // ESP32 module can
+    box(0.3, 1.0, 0.02, 1.48, 0, 0.06, 0x0f2f28, false);      // antenna keep-out
+    box(0.4, 0.4, 0.08, -0.75, 0.4, 0.09, 0x1a1a1a, false);   // IMU chip
+    box(0.35, 0.55, 0.18, -1.42, 0, 0.14, 0x9aa3ab, true);    // USB connector
+    const arrow = (dir, color, len) => b.add(new THREE.ArrowHelper(new THREE.Vector3(...dir), new THREE.Vector3(0, 0, 0.12), len, color, 0.3, 0.16));
+    arrow([1, 0, 0], C['--ax-x'], 2.3); arrow([0, 1, 0], C['--ax-y'], 1.6); arrow([0, 0, 1], C['--ax-z'], 1.4);
+    sc.add(b);
+
+    const gm = this.ghostMat = new THREE.LineBasicMaterial({ color: C['--truth'], transparent: true, opacity: 0.55 });
+    const g = this.ghost = new THREE.Group();
+    g.add(new THREE.LineSegments(new THREE.EdgesGeometry(new THREE.BoxGeometry(3.0, 1.9, 0.1)), gm));
+    g.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(0, 0, 0.12), new THREE.Vector3(2.3, 0, 0.12)]), gm));
+    g.visible = false; sc.add(g);
+    this.buildFloor();
+    new ResizeObserver(() => this.resize()).observe(host);
+    this.resize();
+  }
+  buildFloor() {
+    if (this.floor) this.scene.remove(this.floor);
+    const f = this.floor = new THREE.Group();
+    const grid = new THREE.GridHelper(7, 7, C['--line'], C['--line']);
+    grid.rotation.x = Math.PI / 2; grid.position.z = -1.5; f.add(grid);
+    f.add(new THREE.ArrowHelper(new THREE.Vector3(1, 0, 0), new THREE.Vector3(1.6, 0, -1.5), 1.6, C['--muted'], 0.3, 0.18));
+    const n = makeLabel('N', C['--muted']); n.position.set(3.6, 0, -1.3); f.add(n);
+    this.scene.add(f);
+  }
+  /* The presentation cube: one colour per axis, the positive face brighter, a label off each face. */
+  buildCube() {
+    if (this.cube) this.scene.remove(this.cube);
+    const g = this.cube = new THREE.Group(), s = 2.2, geo = new THREE.BoxGeometry(s, s, s);
+    const faces = [['--ax-x', 1], ['--ax-x', 0.4], ['--ax-y', 1], ['--ax-y', 0.4], ['--ax-z', 1], ['--ax-z', 0.4]];   // +x -x +y -y +z -z
+    g.add(new THREE.Mesh(geo, faces.map(([t, k]) => new THREE.MeshStandardMaterial({ color: new THREE.Color(C[t]).multiplyScalar(k), roughness: 0.65 }))));
+    g.add(new THREE.LineSegments(new THREE.EdgesGeometry(geo), new THREE.LineBasicMaterial({ color: C['--ink'] })));
+    const off = s / 2 + 0.42;
+    [['+X front', [1, 0, 0]], ['−X', [-1, 0, 0]], ['+Y', [0, 1, 0]], ['−Y', [0, -1, 0]], ['+Z top', [0, 0, 1]], ['−Z', [0, 0, -1]]].forEach(([t, d]) => {
+      const sp = makeTag(t); sp.position.set(d[0] * off, d[1] * off, d[2] * off); g.add(sp);
+    });
+    g.visible = this.model === 'cube';
+    this.scene.add(g);
+  }
+  setModel(m) {
+    this.model = m;
+    if (m === 'cube' && !this.cube) this.buildCube();
+    if (this.cube) this.cube.visible = m === 'cube';
+    this.board.visible = m !== 'cube';
+  }
+  retheme() { this.edge.material.color.set(this.algo.color); this.ghostMat.color.set(C['--truth']); this.buildFloor(); if (this.cube) this.buildCube(); }
+  resize() {
+    const w = this.host.clientWidth, h = this.host.clientHeight; if (!w || !h) return;
+    this.renderer.setSize(w, h, false); this.camera.aspect = w / h; this.camera.updateProjectionMatrix();
+  }
+  render(q, qTrue) {
+    // After "Set zero" (or with turning off), into-the-screen is no longer north: hide the N arrow.
+    const north = !zero.refs && zero.follow;
+    this.floor.children.forEach((c, i) => { if (i > 0) c.visible = north; });
+    this.board.quaternion.set(q[1], q[2], q[3], q[0]);
+    if (this.cube) this.cube.quaternion.set(q[1], q[2], q[3], q[0]);
+    if (qTrue) { this.ghost.visible = true; this.ghost.quaternion.set(qTrue[1], qTrue[2], qTrue[3], qTrue[0]); } else this.ghost.visible = false;
+    this.renderer.render(this.scene, this.camera);
+  }
+}
+
+const viewsEl = document.getElementById('views');
+ALGOS.forEach(A => {
+  const card = document.createElement('article'); card.className = 'view';
+  card.innerHTML = `<header><span class="dot" style="background:var(${A.token})"></span><h3>${A.name}</h3><span class="err" id="err-${A.id}"></span></header>
+    <div class="stage" id="stage-${A.id}"></div>
+    <footer><div><span>R </span><b id="r-${A.id}">0.0</b></div><div><span>P </span><b id="p-${A.id}">0.0</b></div><div><span>Y </span><b id="y-${A.id}">0.0</b></div></footer>`;
+  viewsEl.appendChild(card);
+  A.card = card;
+  if (A.board) card.hidden = true;
+});
+viewsEl.classList.add('n7');
+if (hasGL && window.THREE) {
+  ALGOS.forEach(A => { A.view = new View(document.getElementById('stage-' + A.id), A); });
+} else {
+  ALGOS.forEach(A => { document.getElementById('stage-' + A.id).innerHTML = '<p class="hint" style="padding:16px">3D needs WebGL, which this browser has turned off. The numbers and charts still work.</p>'; });
+}
+
+/* ============ Charts ============ */
+class Chart {
+  constructor(canvas) {
+    this.c = canvas; this.x = canvas.getContext('2d');
+    new ResizeObserver(() => this.size()).observe(canvas); this.size();
+  }
+  size() { const d = Math.min(2, window.devicePixelRatio || 1); this.d = d; this.w = this.c.clientWidth; this.h = this.c.clientHeight; this.c.width = Math.max(1, this.w*d); this.c.height = Math.max(1, this.h*d); }
+  draw(series, opt = {}) {
+    const x = this.x, w = this.w, h = this.h; if (!w || !h) return;
+    x.setTransform(this.d, 0, 0, this.d, 0, 0); x.clearRect(0, 0, w, h);
+    let lo = Infinity, hi = -Infinity;
+    for (const s of series) for (let k = 0; k < s.ring.len; k++) { const v = s.ring.at(k); if (v < lo) lo = v; if (v > hi) hi = v; }
+    if (!isFinite(lo)) { lo = -1; hi = 1; }
+    const minSpan = opt.minSpan || 1;
+    if (hi - lo < minSpan) { const m = (hi + lo) / 2; lo = m - minSpan/2; hi = m + minSpan/2; }
+    const pad = (hi - lo) * 0.08; lo -= pad; hi += pad;
+    const raw = (hi - lo) / (h > 150 ? 5 : 3), mag = Math.pow(10, Math.floor(Math.log10(raw))), nm = raw / mag;
+    const step = (nm < 1.5 ? 1 : nm < 3.5 ? 2 : nm < 7.5 ? 5 : 10) * mag;
+    const L = 38, R = 6, T = 6, B = opt.timeAxis ? 18 : 6;
+    const X = k => L + (w - L - R) * (k / (HIST - 1)), Y = v => T + (h - T - B) * (1 - (v - lo) / (hi - lo));
+    x.font = '10px "IBM Plex Mono", Consolas, monospace'; x.textBaseline = 'middle'; x.textAlign = 'right';
+    x.lineWidth = 1;
+    for (let v = Math.ceil(lo / step) * step; v <= hi; v += step) {
+      const yy = Math.round(Y(v)) + 0.5;
+      x.strokeStyle = C['--line']; x.globalAlpha = Math.abs(v) < step/2 ? 1 : 0.55;
+      x.beginPath(); x.moveTo(L, yy); x.lineTo(w - R, yy); x.stroke(); x.globalAlpha = 1;
+      x.fillStyle = C['--muted']; x.fillText(+v.toFixed(6) + '', L - 5, yy);
+    }
+    if (opt.timeAxis) {
+      x.textAlign = 'center'; x.textBaseline = 'alphabetic'; x.fillStyle = C['--muted'];
+      for (let s = 0; s <= 10; s += 2) x.fillText(s === 10 ? 'now' : `−${10 - s}s`, X((s / 10) * (HIST - 1)), h - 4);
+    }
+    x.save(); x.beginPath(); x.rect(L, 0, w - L - R, h); x.clip();
+    for (const s of series) {
+      const r = s.ring; if (r.len < 2) continue;
+      const off = HIST - r.len;
+      x.strokeStyle = s.color; x.lineWidth = s.width || 1.5; x.setLineDash(s.dash || []); x.lineJoin = 'round';
+      x.beginPath(); let prev = null;
+      for (let k = 0; k < r.len; k++) {
+        const v = r.at(k), px = X(off + k), py = Y(v);
+        if (prev === null || (opt.wrap && Math.abs(v - prev) > 180)) x.moveTo(px, py); else x.lineTo(px, py);
+        prev = v;
+      }
+      x.stroke();
+      if (s.endDot) { x.setLineDash([]); x.fillStyle = s.color; x.beginPath(); x.arc(X(HIST - 1), Y(r.last()), 2.8, 0, 7); x.fill(); }
+    }
+    x.restore(); x.setLineDash([]);
+  }
+}
+const angleChart = new Chart(document.getElementById('angle-chart'));
+const rawCharts = { acc: new Chart(document.getElementById('raw-acc')), gyro: new Chart(document.getElementById('raw-gyro')), mag: new Chart(document.getElementById('raw-mag')) };
+const gimbalChart = new Chart(document.getElementById('gimbal-chart'));
+
+const legend = document.getElementById('legend');
+function buildLegend() {
+  legend.innerHTML = '';
+  active().concat(app.source === 'sim' ? [{ id: 'truth', name: 'Truth', token: '--truth' }] : []).forEach(A => {
+    const b = document.createElement('button');
+    b.setAttribute('aria-pressed', app.hidden.has(A.id) ? 'false' : 'true');
+    b.innerHTML = `<span class="sw" style="background:var(${A.token})${A.id === 'truth' ? ';height:2px' : ''}"></span>${A.name}`;
+    b.onclick = () => { app.hidden.has(A.id) ? app.hidden.delete(A.id) : app.hidden.add(A.id); b.setAttribute('aria-pressed', app.hidden.has(A.id) ? 'false' : 'true'); };
+    legend.appendChild(b);
+  });
+}
+buildLegend();
+document.querySelectorAll('[data-axis]').forEach(b => b.onclick = () => setAxis(+b.dataset.axis));
+function setAxis(k) { app.axis = k; document.querySelectorAll('[data-axis]').forEach(x => x.setAttribute('aria-pressed', +x.dataset.axis === k ? 'true' : 'false')); }
+
+/* ============ Sliders ============ */
+function makeSlider(host, def, store, onChange) {
+  const row = document.createElement('div'); row.className = 'slider';
+  const id = 's-' + def.key;
+  row.innerHTML = `<label for="${id}">${def.label}</label><input type="range" id="${id}" min="0" max="1000" step="1"><output for="${id}"></output>`;
+  host.appendChild(row);
+  const inp = row.querySelector('input'), out = row.querySelector('output');
+  const toPos = v => def.log ? 1000 * Math.log(v / def.min) / Math.log(def.max / def.min) : 1000 * (v - def.min) / (def.max - def.min);
+  const fromPos = p => def.log ? def.min * Math.pow(def.max / def.min, p / 1000) : def.min + (def.max - def.min) * p / 1000;
+  const fmt = v => (def.fmt ? def.fmt(v) : v.toFixed(def.dp ?? 2)) + (def.unit ? ' ' + def.unit : '');
+  const sync = () => { inp.value = Math.round(toPos(store[def.key])); out.textContent = fmt(store[def.key]); };
+  inp.addEventListener('input', () => { let v = fromPos(+inp.value); if (def.round) v = Math.round(v / def.round) * def.round; store[def.key] = v; out.textContent = fmt(v); onChange && onChange(); });
+  sync(); def.sync = sync; return def;
+}
+const sliderDefs = [];
+const tune = document.getElementById('tab-tune');
+const GROUPS = [
+  { id: 'gyro', hint: 'Nothing to tune. It only integrates the gyro.' },
+  { id: 'am', hint: 'Nothing to tune. It uses only the current accel and mag sample.' },
+  { id: 'comp', hint: 'One knob: how long to trust the gyro before handing over to accel/mag.', sliders: [{ key: 'tau', label: 'τ', min: 0.02, max: 10, log: true, unit: 's' }] },
+  { id: 'mahony', hint: 'PI feedback on the gravity and field error.', sliders: [{ key: 'kp', label: 'Kp', min: 0, max: 5 }, { key: 'ki', label: 'Ki', min: 0, max: 1, dp: 3 }] },
+  { id: 'madgwick', hint: 'Fixed-size gradient step toward the accel/mag answer.', sliders: [{ key: 'beta', label: 'β', min: 0, max: 1, dp: 3 }] },
+  { id: 'kalman', hint: 'Three 1-D filters, each with an angle and a gyro bias state.', sliders: [{ key: 'qa', label: 'Q angle', min: 1e-5, max: 1, log: true, fmt: v => v.toExponential(1) }, { key: 'qb', label: 'Q bias', min: 1e-6, max: 1, log: true, fmt: v => v.toExponential(1) }, { key: 'r', label: 'R', min: 1e-3, max: 10, log: true, fmt: v => v.toExponential(1) }] },
+  { id: 'eskf', hint: 'Kalman filter on the small attitude and bias error. Same code as on the ESP32. Two experiments are off by default and not on the ESP32 yet: σ scale error (more doubt while rotating fast) and σ gravity, still (trust gravity more once the board is still). Try them on the "Pick up, move, put back" motion.', sliders: [
+    { key: 'eg', label: 'σ gyro', min: 0.001, max: 1, log: true, unit: '°/s/√Hz', dp: 3 },
+    { key: 'eb', label: 'σ bias walk', min: 1e-4, max: 0.1, log: true, unit: '°/s/√s', dp: 4 },
+    { key: 'esf', label: 'σ scale error', min: 0, max: 10, unit: '% of rate', dp: 1 },
+    { key: 'ea', label: 'σ gravity, moving', min: 0.003, max: 1, log: true, unit: 'g', dp: 3 },
+    { key: 'eas', label: 'σ gravity, still', min: 0.001, max: 0.3, log: true, unit: 'g', dp: 3 },
+    { key: 'eh', label: 'σ heading', min: 0.2, max: 30, log: true, unit: '°', dp: 1 },
+    { key: 'egate', label: 'Accel gate', min: 0.02, max: 1, unit: 'g', dp: 2 }] },
+];
+GROUPS.forEach(g => {
+  const A = ALGOS.find(a => a.id === g.id);
+  const el = document.createElement('div'); el.className = 'group';
+  el.innerHTML = `<div class="group-title"><span class="dot" style="background:var(${A.token})"></span>${A.name}</div><p class="hint">${g.hint}</p>`;
+  (g.sliders || []).forEach(d => sliderDefs.push(makeSlider(el, d, P)));
+  if (g.id !== 'gyro' && g.id !== 'am') { const d = document.createElement('div'); d.className = 'derived'; d.id = 'der-' + g.id; el.appendChild(d); }
+  tune.appendChild(el);
+});
+const boardGroup = document.createElement('div'); boardGroup.className = 'group'; boardGroup.hidden = true;
+boardGroup.innerHTML = `<div class="group-title"><span class="dot" style="background:var(--a-b-eskf)"></span>ESP32 on-board</div>
+  <p class="hint">Computed on the chip at the fusion rate below, with fixed gains. The sliders above only change the browser's copies.</p>
+  <dl class="kv"><dt>Fusion loop</dt><dd id="b-loop">—</dd><dt>ESKF bias</dt><dd id="b-bias-e">—</dd><dt>ESKF σ</dt><dd id="b-sigma">—</dd>
+  <dt>Updates</dt><dd id="b-flags">—</dd><dt>Mahony bias</dt><dd id="b-bias-m">—</dd><dt>Chip temp</dt><dd id="b-temp">—</dd></dl>`;
+tune.appendChild(boardGroup);
+const simDefs = [
+  { key: 'gyroBias', label: 'Gyro bias', min: 0, max: 5, unit: '°/s', dp: 1 },
+  { key: 'gyroNoise', label: 'Gyro noise', min: 0, max: 3, unit: '°/s', dp: 2 },
+  { key: 'gyroScale', label: 'Gyro scale error', min: 0, max: 5, unit: '%', dp: 1 },
+  { key: 'accNoise', label: 'Accel noise', min: 0, max: 0.2, unit: 'g', dp: 3 },
+  { key: 'shake', label: 'Shaking', min: 0, max: 1, unit: 'g', dp: 2 },
+  { key: 'magNoise', label: 'Mag noise', min: 0, max: 5, unit: 'µT', dp: 1 },
+  { key: 'hardIron', label: 'Hard iron', min: 0, max: 60, unit: 'µT', dp: 0 },
+];
+const simHost = document.getElementById('sim-sliders');
+simDefs.forEach(d => sliderDefs.push(makeSlider(simHost, d, S)));
+const gimDefs = [
+  { key: 'gkp', label: 'Kp', min: 0, max: 300, dp: 0 },
+  { key: 'gki', label: 'Ki', min: 0, max: 400, dp: 0 },
+  { key: 'gkd', label: 'Kd', min: 0, max: 40, dp: 1 },
+  { key: 'gmax', label: 'Motor limit', min: 20, max: 1000, dp: 0, unit: 'rad/s²' },
+  { key: 'gsp', label: 'Setpoint', min: -30, max: 30, dp: 0, unit: '°' },
+];
+const gimHost = document.getElementById('gimbal-sliders');
+gimDefs.forEach(d => sliderDefs.push(makeSlider(gimHost, d, G)));
+const syncAll = () => sliderDefs.forEach(d => d.sync());
+
+const gsrc = document.getElementById('gimbal-src');
+function buildGimbalSrc() {
+  const cur = gsrc.value || 'madgwick';
+  gsrc.innerHTML = active().map(A => `<option value="${A.id}">${A.name}</option>`).join('') + (app.source === 'sim' ? '<option value="truth">True angle (perfect sensor)</option>' : '');
+  gsrc.value = [...gsrc.options].some(o => o.value === cur) ? cur : 'madgwick';
+}
+buildGimbalSrc();
+document.getElementById('gimbal-kick').onclick = () => { gim.kick = 4; };
+document.getElementById('gimbal-reset').onclick = () => { Object.assign(G, GIMBAL_DEFAULTS); gim.integ = 0; syncAll(); };
+
+/* Mag axis map */
+const mapRow = document.getElementById('map-row');
+['x', 'y', 'z'].forEach((ax, i) => {
+  const lab = document.createElement('label'); lab.className = 'row'; lab.style.gap = '6px';
+  lab.innerHTML = `<span class="mono">mag ${ax} =</span><select id="map-${ax}">${MAP_OPTS.map(o => `<option value="${o}">accel ${o}</option>`).join('')}</select>`;
+  mapRow.appendChild(lab);
+  const sel = lab.querySelector('select'); sel.value = cal.map[i];
+  sel.onchange = () => { cal.map[i] = sel.value; };
+});
+
+/* Tabs */
+document.querySelectorAll('[role=tab]').forEach(t => t.onclick = () => selectTab(t.dataset.tab));
+function selectTab(name) {
+  document.querySelectorAll('[role=tab]').forEach(t => t.setAttribute('aria-selected', t.dataset.tab === name ? 'true' : 'false'));
+  ['tune', 'sim', 'cal'].forEach(n => document.getElementById('tab-' + n).hidden = n !== name);
+}
+
+/* ============ Calibration jobs ============ */
+const $ = id => document.getElementById(id);
+$('cal-gyro').onclick = () => { cal.gyroJob = { sum: [0, 0, 0], n: 0, target: 300 }; $('cal-gyro').disabled = true; };
+$('cal-gyro-clear').onclick = () => { cal.gyroBias = [0, 0, 0]; showCal(); };
+function finishGyroCal() { const j = cal.gyroJob; cal.gyroBias = j.sum.map(v => v / j.n); cal.gyroJob = null; $('cal-gyro').disabled = false; $('cal-gyro-bar').style.width = '100%'; showCal(); }
+$('cal-mag').onclick = () => { cal.magJob = { min: [Infinity, Infinity, Infinity], max: [-Infinity, -Infinity, -Infinity], n: 0, target: 2000 }; $('cal-mag').disabled = true; };
+$('cal-mag-clear').onclick = () => { cal.magOff = [0, 0, 0]; cal.magScale = [1, 1, 1]; showCal(); };
+function finishMagCal() {
+  const j = cal.magJob; cal.magJob = null; $('cal-mag').disabled = false; $('cal-mag-bar').style.width = '100%';
+  const span = j.max.map((v, i) => v - j.min[i]);
+  if (Math.min(...span) < 30) { $('cal-mag-out').textContent = `Not enough rotation: axis ranges ${span.map(v => v.toFixed(0)).join(' / ')} µT. Turn the board through every direction and try again.`; return; }
+  cal.magOff = j.max.map((v, i) => (v + j.min[i]) / 2);
+  const rad = span.map(v => v / 2), avg = (rad[0] + rad[1] + rad[2]) / 3;
+  cal.magScale = rad.map(r => avg / r);
+  showCal();
+}
+function showCal() {
+  $('cal-gyro-out').textContent = `bias x ${cal.gyroBias[0].toFixed(3)} · y ${cal.gyroBias[1].toFixed(3)} · z ${cal.gyroBias[2].toFixed(3)} °/s`;
+  $('cal-mag-out').textContent = `offset ${cal.magOff.map(v => v.toFixed(1)).join(' · ')} µT · scale ${cal.magScale.map(v => v.toFixed(2)).join(' · ')}`;
+}
+
+/* ============ Toolbar ============ */
+$('use-mag').onchange = e => { P.useMag = e.target.checked; };
+$('btn-pause').onclick = () => { app.paused = !app.paused; $('btn-pause').textContent = app.paused ? 'Resume' : 'Pause'; };
+$('btn-reset').onclick = () => { resetFilters(Q.id()); wifi.send('RESET'); clearZero(); };
+
+/* ---- Set zero, cube setup and presentation mode ---- */
+const present = { on: false, view: null, src: null, wasFull: false, model: 'board', facing: 'into' };
+try {
+  const s = JSON.parse(localStorage.getItem('imu-lab-present') || '{}');
+  if (typeof s.follow === 'boolean') zero.follow = s.follow;
+  if (typeof s.src === 'string') present.src = s.src;
+  if (s.model === 'cube' || s.model === 'board') present.model = s.model;
+  if (s.facing === 'audience' || s.facing === 'into') present.facing = s.facing;
+  const c = JSON.parse(localStorage.getItem('imu-lab-cube') || 'null');
+  if (c && Array.isArray(c.mount) && c.mount.length === 4) zero.mount = Q.norm(c.mount);
+} catch (e) {}
+zero.face = present.facing === 'audience' ? FACE_AUDIENCE : 0;
+function savePresentPrefs() {
+  try {
+    localStorage.setItem('imu-lab-present', JSON.stringify({ follow: zero.follow, src: present.src, model: present.model, facing: present.facing }));
+    localStorage.setItem('imu-lab-cube', JSON.stringify(zero.mount ? { mount: zero.mount } : null));
+  } catch (e) {}
+}
+function updateZeroUi() {
+  $('btn-unzero').hidden = !zero.refs;
+  $('btn-zero').textContent = zero.refs ? 'Zero again' : 'Set zero';
+  $('follow-yaw').checked = zero.follow; $('pr-follow').checked = zero.follow;
+  $('pr-model').value = present.model; $('pr-face').value = present.facing;
+  $('pr-zero').textContent = present.model === 'cube' ? 'Set front (Space)' : 'Set zero (Space)';
+  const pose = present.model === 'cube' ? 'Put the cube in its normal position, +X face toward the audience,'
+    : 'Hold the board the way you will present it, ESP32 end pointing at the screen,';
+  $('pr-hint').textContent = zero.refs ? 'Ready. The model follows the cube. Press Space any time it looks off.'
+    : `${pose} and press Space.`;
+  $('pr-hint').hidden = !$('cube-cal').hidden;
+  $('cc-forget-row').hidden = !zero.mount;
+}
+function setZero() {
+  zero.refs = {};
+  for (const A of active()) zero.refs[A.id] = makeRef(mounted(A.f.q));
+  if (app.source === 'sim' && app.lastTruth) zero.refs.truth = makeRef(mounted(app.lastTruth));
+  updateZeroUi();
+}
+function clearZero() { zero.refs = null; updateZeroUi(); }
+function setFollow(v) { zero.follow = v; savePresentPrefs(); updateZeroUi(); }
+function setModel(m) { present.model = m; if (present.view) present.view.setModel(m); savePresentPrefs(); updateZeroUi(); }
+function setFacing(f) { present.facing = f; zero.face = f === 'audience' ? FACE_AUDIENCE : 0; savePresentPrefs(); updateZeroUi(); }
+function presentAlgo() { return BY(present.src) || BY('eskf'); }
+function openPresent() {
+  const sel = $('present-src'), list = active();
+  sel.innerHTML = list.map(A => `<option value="${A.id}">${A.name}</option>`).join('');
+  if (!list.some(A => A.id === present.src)) present.src = app.source === 'wifi' ? 'b_eskf' : 'eskf';
+  sel.value = present.src;
+  $('present').hidden = false; present.on = true;
+  document.body.style.overflow = 'hidden';
+  if (hasGL && window.THREE) {
+    if (!present.view) present.view = new View($('present-stage'), presentAlgo());
+    else { present.view.algo = presentAlgo(); present.view.retheme(); }
+    present.view.setModel(present.model);
+    present.view.resize();
+  }
+  updateZeroUi();
+  const el = $('present');
+  present.wasFull = false;
+  if (el.requestFullscreen) el.requestFullscreen().then(() => { present.wasFull = true; }).catch(() => {});
+  $('pr-zero').focus();
+}
+function closePresent() {
+  $('present').hidden = true; present.on = false; cubeCal.cap = null;
+  document.body.style.overflow = '';
+  if (document.fullscreenElement) document.exitFullscreen().catch(() => {});
+  $('btn-present').focus();
+}
+
+/* Guided cube setup (math in solveCube) */
+const CUBE_STEPS = [
+  { key: 'rest', title: 'Normal position', text: 'Put the cube where you will present it: +X face toward the audience, top up. Let go of it.' },
+  { key: 'fwd', title: 'Lean forward', text: 'Tip the +X face down by about 30°, toward the audience, and hold it still.' },
+  { key: 'back', title: 'Lean back', text: 'Tip the +X face up by about 30° and hold it still.' },
+  { key: 'left', title: 'Lean left', text: 'Stand behind the cube, looking the way +X points. Tip it to your left, about 30°, and hold it still.' },
+  { key: 'right', title: 'Lean right', text: 'Tip it to your right, about 30°, and hold it still.' },
+];
+function cubeReset() { Object.assign(cubeCal, { cap: null, step: 0, u: {}, qRest: null, result: null, msg: '' }); }
+function cubeCapture(s) {
+  const c = cubeCal.cap, now = performance.now();
+  c.buf.push({ t: now, a: s.acc.slice(), g: s.gyro.slice() });
+  while (c.buf.length && now - c.buf[0].t > 1000) c.buf.shift();
+  if (now - c.t0 < 1000 || c.buf.length < 20) return;
+  const n = c.buf.length;
+  const mean = k => [0, 1, 2].map(i => c.buf.reduce((acc, b) => acc + b[k][i], 0) / n);
+  const spread = (k, m) => Math.max(...[0, 1, 2].map(i => Math.sqrt(c.buf.reduce((acc, b) => acc + (b[k][i] - m[i]) ** 2, 0) / n)));
+  const ma = mean('a'), mg = mean('g');
+  if (spread('a', ma) < 0.02 && spread('g', mg) < 3) finishCapture(v3.norm(ma));
+  else if (now - c.t0 > 8000) { cubeCal.cap = null; cubeCal.msg = 'No steady reading. Hold the cube still, or let go of it, and press Capture again.'; renderCubeCal(); }
+  else if (!c.told) { c.told = true; cubeCal.msg = 'Hold still…'; renderCubeCal(); }
+}
+function finishCapture(u) {
+  const st = CUBE_STEPS[cubeCal.step];
+  cubeCal.cap = null;
+  if (st.key === 'rest') {
+    cubeCal.qRest = {};
+    for (const A of active()) cubeCal.qRest[A.id] = A.f.q.slice();
+    if (app.source === 'sim' && app.lastTruth) cubeCal.qRest.truth = app.lastTruth.slice();
+    cubeCal.msg = 'Got the normal position.';
+  } else {
+    const a = v3.angle(u, cubeCal.u.rest);
+    if (a < 12) { cubeCal.msg = `That is only ${a.toFixed(0)}° from the normal position. Tip it further, about 30°, and capture again.`; renderCubeCal(); return; }
+    if (a > 75) { cubeCal.msg = `${a.toFixed(0)}° is more than needed. About 30° is enough. Capture again.`; renderCubeCal(); return; }
+    cubeCal.msg = `Got it: tipped ${a.toFixed(0)}°.`;
+  }
+  cubeCal.u[st.key] = u;
+  cubeCal.step++;
+  if (cubeCal.step === CUBE_STEPS.length) { cubeCal.result = solveCube(cubeCal.u); cubeCal.msg = ''; }
+  renderCubeCal();
+}
+function renderCubeCal() {
+  const r = cubeCal.result;
+  $('cc-steps').innerHTML = CUBE_STEPS.map((st, i) => {
+    const cls = i < cubeCal.step ? 'done' : (i === cubeCal.step && !r ? 'now' : '');
+    return `<li class="${cls}"><b>${st.title}</b>${i < cubeCal.step ? ' ✓' : ''}${cls === 'now' ? `<br><span>${st.text}</span>` : ''}</li>`;
+  }).join('');
+  let m = cubeCal.msg ? `<p>${cubeCal.msg}</p>` : '';
+  if (r) {
+    m += `<p><b>How the IMU sits in the cube</b><br>cube +X (front) = ${nearestAxis(r.X)}<br>cube +Y = ${nearestAxis(r.Y)}<br>cube +Z (top) = ${nearestAxis(r.Z)}</p>`;
+    m += r.warn.length ? r.warn.map(w => `<p class="warn">${w}</p>`).join('')
+      : `<p class="good">All five steps agree: left/right within ${r.agree.toFixed(0)}° of forward/back.</p>`;
+    m += '<p>Put the cube back in its normal position before you press the button.</p>';
+  }
+  $('cc-msg').innerHTML = m;
+  $('cc-go').textContent = r ? 'Use this calibration' : cubeCal.cap ? 'Measuring…' : `Capture step ${cubeCal.step + 1}`;
+  $('cc-go').disabled = !!cubeCal.cap;
+  $('cc-redo').hidden = cubeCal.step === 0;
+}
+function openCubeCal() { cubeReset(); $('cube-cal').hidden = false; renderCubeCal(); updateZeroUi(); $('cc-go').focus(); }
+function closeCubeCal() { cubeCal.cap = null; $('cube-cal').hidden = true; updateZeroUi(); $('pr-zero').focus(); }
+function cubeGo() {
+  if (cubeCal.result) {
+    zero.mount = cubeCal.result.q;
+    zero.refs = {};
+    for (const id in cubeCal.qRest) zero.refs[id] = makeRef(mounted(cubeCal.qRest[id]));
+    setModel('cube'); setFacing('audience');
+    closeCubeCal();
+    return;
+  }
+  if (!cubeCal.cap) { cubeCal.cap = { t0: performance.now(), buf: [], told: false }; cubeCal.msg = 'Measuring…'; renderCubeCal(); }
+}
+$('pr-setup').onclick = openCubeCal;
+$('cc-go').onclick = cubeGo;
+$('cc-redo').onclick = () => { cubeReset(); renderCubeCal(); };
+$('cc-close').onclick = closeCubeCal;
+$('cc-forget').onclick = () => { zero.mount = null; zero.refs = null; savePresentPrefs(); closeCubeCal(); };
+
+$('btn-zero').onclick = setZero;
+$('btn-unzero').onclick = clearZero;
+$('follow-yaw').onchange = e => setFollow(e.target.checked);
+$('pr-follow').onchange = e => setFollow(e.target.checked);
+$('pr-model').onchange = e => setModel(e.target.value);
+$('pr-face').onchange = e => setFacing(e.target.value);
+$('btn-present').onclick = openPresent;
+$('pr-zero').onclick = setZero;
+$('pr-exit').onclick = closePresent;
+$('present-src').onchange = e => {
+  present.src = e.target.value; savePresentPrefs();
+  if (present.view) { present.view.algo = presentAlgo(); present.view.retheme(); }
+};
+// Esc leaves full screen first (the browser handles that key); leaving full screen ends the presentation too.
+document.addEventListener('fullscreenchange', () => { if (!document.fullscreenElement && present.on && present.wasFull) closePresent(); });
+document.addEventListener('keydown', e => {
+  const t = e.target;
+  if (e.ctrlKey || e.metaKey || e.altKey || (t && (t.tagName === 'SELECT' || t.tagName === 'TEXTAREA' || (t.tagName === 'INPUT' && t.type !== 'checkbox')))) return;
+  const k = e.key.toLowerCase();
+  if (present.on) {
+    const setup = !$('cube-cal').hidden;
+    if (k === ' ' || (k === 'z' && !setup)) { e.preventDefault(); setup ? cubeGo() : setZero(); }
+    else if (k === 'f') setFollow(!zero.follow);
+    else if (k === 'escape') setup ? closeCubeCal() : closePresent();
+  } else if (k === 'z') setZero();
+});
+updateZeroUi();
+$('btn-truth').onclick = () => { resetFilters(sim.qTrue(sim.t)); };
+$('btn-magnet').onclick = () => { sim.magnetT = 0; };
+$('pattern').onchange = e => { sim.pattern = e.target.value; sim.t = 0; resetFilters(sim.qTrue(0)); gim.betaPrev = null; gim.prevMeas = null; };
+$('lab-note-x').onclick = () => { $('lab-note').hidden = true; };
+$('src-sim').onclick = () => setSource('sim');
+$('src-real').onclick = () => setSource('real');
+$('src-wifi').onclick = () => setSource('wifi');
+$('btn-connect').onclick = () => {
+  if (app.source === 'wifi') wifi.ws ? wifi.disconnect() : wifi.connect();
+  else serial.port ? serial.disconnect() : serial.connect();
+};
+$('wifi-host').addEventListener('keydown', e => { if (e.key === 'Enter' && !wifi.ws) wifi.connect(); });
+$('cal-send').onclick = () => {
+  const f = v => v.toFixed(2);
+  wifi.send(`CAL ${cal.magOff.map(f).join(' ')} ${cal.magScale.map(v => v.toFixed(4)).join(' ')} ${cal.map.join(' ')}`);
+  $('cal-send-out').textContent = 'Sent. The ESP32 saved it and restarted its filters.';
+};
+
+function setSource(src) {
+  if (src === app.source) return;
+  clearZero();
+  if (app.source === 'real') serial.disconnect();
+  if (app.source === 'wifi') wifi.disconnect();
+  app.source = src;
+  ['sim', 'real', 'wifi'].forEach(k => $('src-' + k).setAttribute('aria-pressed', src === k ? 'true' : 'false'));
+  $('btn-connect').hidden = src === 'sim';
+  $('btn-connect').textContent = 'Connect ESP32';
+  $('wifi-host').hidden = src !== 'wifi';
+  $('btn-pause').hidden = src !== 'sim';
+  $('serial-blocked').hidden = true;
+  const onBoard = src === 'wifi';
+  ALGOS.forEach(A => { if (A.board) A.card.hidden = !onBoard; });
+  viewsEl.classList.toggle('n7', !onBoard);
+  boardGroup.hidden = !onBoard;
+  if (src === 'sim') resetFilters(sim.qTrue(sim.t));
+  else { resetFilters(Q.id()); app.lastTms = null; }
+  clearHistory(); buildLegend(); buildGimbalSrc(); gim.betaPrev = null; gim.prevMeas = null;
+  ALGOS.forEach(A => { $('err-' + A.id).textContent = ''; });
+  updateSendButton(); setStatus();
+}
+function updateSendButton() {
+  const ok = app.source === 'wifi' && wifi.opened;
+  $('cal-send').disabled = !ok;
+  if (!ok) $('cal-send-out').textContent = 'Connect over Wi-Fi first';
+  else if ($('cal-send-out').textContent.startsWith('Connect')) $('cal-send-out').textContent = '';
+}
+function setStatus(text, kind) {
+  const s = $('status');
+  if (!text) {
+    if (app.source === 'sim') { text = app.paused ? 'Simulation paused' : 'Simulating · 100 Hz'; kind = app.paused ? 'warn' : 'good'; }
+    else if (app.source === 'real' && serial.port) { text = `USB · ${app.rate.toFixed(0)} Hz`; kind = app.rate > 20 ? 'good' : 'warn'; }
+    else if (app.source === 'wifi' && wifi.opened) {
+      text = `Wi-Fi · ${app.rate.toFixed(0)} Hz` + (app.board ? ` · fusion ${app.board.hz} Hz` : '');
+      kind = app.rate > 80 ? 'good' : 'warn';
+    }
+    else if (app.source === 'wifi' && wifi.ws) { text = 'Connecting…'; kind = 'warn'; }
+    else { text = 'Not connected'; kind = ''; }
+  }
+  s.textContent = text; s.className = 'pill ' + (kind || '');
+}
+
+/* ============ Wi-Fi (WebSocket) ============ */
+const wifi = {
+  ws: null, opened: false, host: '',
+  connect() {
+    let host = $('wifi-host').value.trim() || 'imu-lab.local';
+    host = host.replace(/^(wss?|https?):\/\//, '').replace(/\/.*$/, '');
+    this.host = host;
+    let ws;
+    try { ws = new WebSocket(`ws://${host}/ws`); }
+    catch (e) { $('serial-blocked').hidden = false; setStatus('Network access blocked here', 'bad'); return; }
+    this.ws = ws; this.opened = false;
+    ws.binaryType = 'arraybuffer';
+    $('btn-connect').textContent = 'Disconnect'; setStatus();
+    ws.onopen = () => { this.opened = true; app.lastTms = null; resetFilters(Q.id()); clearHistory(); updateSendButton(); setStatus(); };
+    ws.onmessage = e => { if (e.data instanceof ArrayBuffer) this.packet(e.data); };
+    ws.onclose = () => {
+      const was = this.opened;
+      if (this.ws === ws) { this.ws = null; this.opened = false; }
+      $('btn-connect').textContent = 'Connect ESP32'; updateSendButton();
+      if (was) setStatus();
+      else if (location.protocol === 'https:') { $('serial-blocked').hidden = false; setStatus('Network access blocked here', 'bad'); }
+      else setStatus(`Can't reach ${host}`, 'bad');
+    };
+  },
+  disconnect() { const ws = this.ws; this.ws = null; this.opened = false; if (ws) ws.close(); $('btn-connect').textContent = 'Connect ESP32'; updateSendButton(); setStatus(); },
+  send(t) { if (this.ws && this.opened) this.ws.send(t); },
+  packet(buf) {
+    if (buf.byteLength < 120) return;
+    const d = new DataView(buf);
+    if (d.getUint8(0) !== 73 || d.getUint8(1) !== 81) return;   // "IQ"
+    const f = (o, n) => Array.from({ length: n }, (_, i) => d.getFloat32(o + 4 * i, true));
+    const t = d.getUint32(4, true);
+    let dt = 0.01;
+    if (app.lastTms !== null) { dt = (t - app.lastTms) / 1000; if (!(dt > 0.0005 && dt < 0.2)) dt = 0.01; }
+    app.lastTms = t;
+    const flags = d.getUint8(3);
+    if (flags & 8) app.clipG = (app.clipG || 0) + 1;
+    if (flags & 16) app.clipA = (app.clipA || 0) + 1;
+    app.board = { hz: d.getUint16(8, true), usMax: d.getUint16(10, true), accUsed: !!(flags & 1), magUsed: !!(flags & 2), magPresent: !!(flags & 4),
+      temp: d.getFloat32(48, true), biasE: f(84, 3), biasM: f(96, 3), sigma: f(108, 3) };
+    if (app.source !== 'wifi') return;
+    processSample({ dt, acc: f(12, 3), gyro: f(24, 3), mag: f(36, 3), qTrue: null, board: { b_eskf: Q.norm(f(52, 4)), b_mahony: Q.norm(f(68, 4)) } });
+  },
+};
+
+/* ============ Web Serial ============ */
+const serial = {
+  port: null, reader: null, closed: null, logLines: [],
+  async connect() {
+    if (!('serial' in navigator)) { setStatus('No Web Serial in this browser', 'bad'); $('serial-blocked').hidden = false; return; }
+    let port;
+    try {
+      port = await navigator.serial.requestPort({ filters: [{ usbVendorId: 0x10C4 }, { usbVendorId: 0x1A86 }, { usbVendorId: 0x303A }, { usbVendorId: 0x0403 }] });
+    } catch (e) {
+      if (e.name === 'NotFoundError') setStatus('No port chosen', 'warn');
+      else { setStatus('USB access blocked here', 'bad'); $('serial-blocked').hidden = false; }
+      return;
+    }
+    try { await port.open({ baudRate: 115200, bufferSize: 65536 }); }
+    catch (e) { setStatus('Port busy: close idf.py monitor', 'bad'); this.log('Could not open the port. Another program (idf.py monitor, Arduino IDE) is probably using it.'); return; }
+    try { await port.setSignals({ dataTerminalReady: false, requestToSend: false }); } catch (e) {}
+    this.port = port; app.lastTms = null; $('btn-connect').textContent = 'Disconnect';
+    resetFilters(Q.id()); clearHistory();
+    this.loop();
+  },
+  async loop() {
+    const dec = new TextDecoderStream();
+    this.closed = this.port.readable.pipeTo(dec.writable).catch(() => {});
+    this.reader = dec.readable.getReader();
+    let buf = '';
+    try {
+      while (true) {
+        const { value, done } = await this.reader.read();
+        if (done) break;
+        buf += value;
+        let i;
+        while ((i = buf.indexOf('\n')) >= 0) { this.line(buf.slice(0, i).trim()); buf = buf.slice(i + 1); }
+        if (buf.length > 8192) buf = '';
+      }
+    } catch (e) { this.log('Read stopped: ' + e.message); }
+    this.cleanup();
+  },
+  line(l) {
+    if (!l) return;
+    if (l.startsWith('$I,')) {
+      const f = l.split(',');
+      if (f.length < 11) return;
+      const v = f.slice(1).map(Number);
+      if (v.some(x => !isFinite(x))) return;
+      let dt = 0.01;
+      if (app.lastTms !== null) { dt = (v[0] - app.lastTms) / 1000; if (!(dt > 0.0005 && dt < 0.2)) dt = 0.01; }
+      app.lastTms = v[0];
+      if (app.source === 'real') processSample({ dt, acc: [v[1], v[2], v[3]], gyro: [v[4], v[5], v[6]], mag: [v[7], v[8], v[9]], qTrue: null });
+    } else this.log(l.replace(/\x1b\[[0-9;]*m/g, ''));
+  },
+  log(t) { this.logLines.push(t); if (this.logLines.length > 40) this.logLines.shift(); const el = $('serial-log'); el.textContent = this.logLines.join('\n'); el.scrollTop = el.scrollHeight; },
+  async disconnect() {
+    if (!this.port) return;
+    try { await this.reader.cancel(); } catch (e) {}
+    try { await this.closed; } catch (e) {}
+    this.cleanup();
+  },
+  async cleanup() {
+    const p = this.port; this.port = null; this.reader = null;
+    if (p) { try { await p.close(); } catch (e) {} }
+    if (app.source === 'real') $('btn-connect').textContent = 'Connect ESP32';
+    setStatus();
+  },
+};
+
+/* ============ Presets for the "Try it" buttons ============ */
+const PRESETS = {
+  drift: { pattern: 'still', sim: { gyroBias: 1.5 }, axis: 2, tab: 'cal', note: 'Watch the Gyro only card: it slowly turns away from the dashed truth outline while the others hold. Then press "Measure gyro bias" in the Calibrate tab.', clearCal: true },
+  shake: { pattern: 'wobble', sim: { shake: 0.6 }, axis: 0, tab: 'sim', note: 'The board is being shaken with 0.6 g. Compare the Accel + Mag line in the roll plot with the gyro-based filters.' },
+  magnet: { pattern: 'still', magnet: true, axis: 2, note: 'A magnet is passing close by for 4 s. Watch yaw on every filter that uses the magnetometer. Press "Bring a magnet close" in the Simulated board tab to repeat.' },
+  comp: { pattern: 'wobble', sim: { shake: 0.3, gyroBias: 1.0 }, axis: 0, tab: 'tune', hide: ['gyro', 'am', 'mahony', 'madgwick', 'kalman'], note: 'Only Complementary and truth are plotted. Drag τ between 0.05 and 5 s and watch its error number at the top of its card.' },
+  mahony: { pattern: 'spin', sim: { gyroBias: 2.0 }, params: { ki: 0 }, axis: 0, tab: 'tune', note: 'Ki is 0, so Mahony carries a steady error from the 2 °/s bias. Raise Ki to about 0.1 and watch its bias estimate settle near 1.2, −1.0, 1.2 °/s, the simulated bias, while its error drops.' },
+  converge: { pattern: 'still', resetLevel: true, axis: 2, note: 'Every filter just restarted at level, facing north. The board actually points 30° west. Press Reset filters again to replay, and try different gains.' },
+  loop: { pattern: 'loop', axis: 1, note: 'The board is pitching all the way over. Watch the Kalman card and its error number as the board passes through vertical, and compare it with Mahony and Madgwick.' },
+  eskf: { pattern: 'spin', sim: { gyroBias: 2.0, shake: 0.4 }, axis: 0, tab: 'tune', hide: ['gyro', 'am', 'comp', 'madgwick', 'kalman'], note: 'Spin with a 2 °/s bias and 0.4 g of shaking. Under ESKF in Tune filters, watch the bias estimate settle near 1.2, −1.0, 1.2 °/s and σ shrink. Then untick Use magnetometer and watch yaw σ grow.' },
+  hardiron: { pattern: 'aggressive', sim: { hardIron: 35 }, axis: 2, tab: 'cal', clearCal: true, note: 'A 35 µT hard-iron offset is distorting the magnetometer. Press "Start 20 s calibration" in the Calibrate tab. The simulated board is already turning through every direction.' },
+};
+function applyPreset(name) {
+  const p = PRESETS[name]; if (!p) return;
+  if (app.source !== 'sim') setSource('sim');
+  Object.assign(S, SIM_DEFAULTS, p.sim || {});
+  Object.assign(P, PARAM_DEFAULTS, p.params || {});
+  if (p.clearCal) { cal.gyroBias = [0, 0, 0]; cal.magOff = [0, 0, 0]; cal.magScale = [1, 1, 1]; showCal(); }
+  syncAll();
+  sim.pattern = p.pattern; $('pattern').value = p.pattern; sim.t = 0;
+  resetFilters(p.resetLevel ? Q.id() : sim.qTrue(0));
+  clearHistory(); gim.betaPrev = null; gim.prevMeas = null;
+  if (p.magnet) sim.magnetT = 0;
+  app.paused = false; $('btn-pause').textContent = 'Pause';
+  app.hidden = new Set(p.hide || []); buildLegend();
+  setAxis(p.axis ?? 0);
+  if (p.tab) selectTab(p.tab);
+  $('lab-note-text').textContent = p.note; $('lab-note').hidden = false;
+  $('lab').scrollIntoView({ behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth', block: 'start' });
+}
+document.querySelectorAll('[data-preset]').forEach(b => b.onclick = () => applyPreset(b.dataset.preset));
+
+/* ============ Table of contents ============ */
+const toc = $('toc-list');
+const chapters = [...document.querySelectorAll('.chapter')];
+chapters.forEach(ch => { const li = document.createElement('li'); li.innerHTML = `<a href="#${ch.id}">${ch.querySelector('h2').textContent}</a>`; toc.appendChild(li); });
+const tocLinks = [...toc.querySelectorAll('a')];
+const tocObs = new IntersectionObserver(ents => {
+  ents.forEach(e => { if (e.isIntersecting) tocLinks.forEach(a => a.classList.toggle('on', a.getAttribute('href') === '#' + e.target.id)); });
+}, { rootMargin: '-20% 0px -70% 0px' });
+chapters.forEach(ch => tocObs.observe(ch));
+
+/* ============ Readouts ============ */
+const fmtA = v => (v >= 0 ? '+' : '−') + Math.abs(v).toFixed(1).padStart(5, ' ');
+function updateText() {
+  const E = BY('eskf').f, es = E.sigmaDeg(), eb = E.bg.map(v => v * R2D);
+  $('der-eskf').textContent = `bias x ${eb[0].toFixed(2)} · y ${eb[1].toFixed(2)} · z ${eb[2].toFixed(2)} °/s · σ ${es.map(v => v.toFixed(2)).join(' / ')}° · board ${E.still ? 'still' : 'moving'} · gravity ${E.accUsed ? 'used' : 'gated'} · heading ${E.magUsed ? 'used' : 'skipped'}`;
+  if (app.source === 'wifi' && app.board) {
+    const b = app.board, f2 = a => a.map(v => v.toFixed(2)).join(' · ');
+    $('b-loop').textContent = `${b.hz} Hz · slowest ${b.usMax} µs`;
+    $('b-bias-e').textContent = `${f2(b.biasE)} °/s`;
+    $('b-sigma').textContent = `${f2(b.sigma)} °`;
+    $('b-flags').textContent = `gravity ${b.accUsed ? 'used' : 'gated'} · heading ${!b.magPresent ? 'no magnetometer' : b.magUsed ? 'used' : 'skipped'}` +
+    (app.clipG || app.clipA ? ` · full scale hit in ${app.clipG || 0} gyro / ${app.clipA || 0} accel packets` : '');
+    $('b-bias-m').textContent = `${f2(b.biasM)} °/s`;
+    $('b-temp').textContent = `${b.temp.toFixed(1)} °C`;
+  }
+  if (present.on) {
+    const e = Q.toEuler(shown(presentAlgo().id, presentAlgo().f.q, false)).map(v => v * R2D);
+    $('pr-r').textContent = fmtA(e[0]); $('pr-p').textContent = fmtA(e[1]); $('pr-y').textContent = fmtA(e[2]);
+  }
+  for (const A of active()) {
+    const e = Q.toEuler(shown(A.id, A.f.q, false)).map(v => v * R2D);
+    $('r-' + A.id).textContent = fmtA(e[0]); $('p-' + A.id).textContent = fmtA(e[1]); $('y-' + A.id).textContent = fmtA(e[2]);
+    $('err-' + A.id).textContent = app.source === 'sim' && A.err.len ? `${Math.sqrt(Math.max(0, A.errSum) / A.err.len).toFixed(1)}° err` : '';
+  }
+  const dt = 0.01, al = P.tau / (P.tau + dt);
+  $('der-comp').textContent = `α = ${al.toFixed(4)} at 100 Hz · crossover ${(1 / (2*Math.PI*P.tau)).toFixed(2)} Hz`;
+  const mb = ALGOS[3].f.ib.map(v => -v * R2D);
+  $('der-mahony').textContent = `bias estimate x ${mb[0].toFixed(2)} · y ${mb[1].toFixed(2)} · z ${mb[2].toFixed(2)} °/s`;
+  $('der-madgwick').textContent = `max correction ≈ 2β = ${(2*P.beta*R2D).toFixed(1)} °/s`;
+  const k = ALGOS[5].f.k;
+  $('der-kalman').textContent = `bias est. r ${k[0].bias.toFixed(2)} · p ${k[1].bias.toFixed(2)} · y ${k[2].bias.toFixed(2)} °/s · roll gain K ${k[0].K.toFixed(4)}`;
+  if (cal.gyroJob) $('cal-gyro-bar').style.width = (100 * cal.gyroJob.n / cal.gyroJob.target) + '%';
+  if (cal.magJob) $('cal-mag-bar').style.width = (100 * cal.magJob.n / cal.magJob.target) + '%';
+  if (dipRing.len > 20) {
+    let s = 0, s2 = 0; for (let i = 0; i < dipRing.len; i++) { const v = dipRing.at(i); s += v; s2 += v*v; }
+    const m = s / dipRing.len, sd = Math.sqrt(Math.max(0, s2 / dipRing.len - m*m));
+    $('dip-out').textContent = `${m.toFixed(1)}° ± ${sd.toFixed(1)}°  ${sd < 2 ? '· steady' : sd < 6 ? '· a bit unsteady' : '· unsteady: check axes or calibrate'}`;
+    let f = 0; for (let i = 0; i < fieldRing.len; i++) f += fieldRing.at(i);
+    $('field-out').textContent = `${(f / fieldRing.len).toFixed(1)} µT  (Earth: about 25–65 µT)`;
+  }
+  $('gimbal-err').textContent = gh.err.len ? `${Math.sqrt(Math.max(0, gh.errSum) / gh.err.len).toFixed(2)}°` : '—';
+  $('gimbal-u').textContent = `${(100 * Math.abs(gim.u) / G.gmax).toFixed(0)} % of limit`;
+  setStatus();
+}
+
+/* ============ Gimbal drawing ============ */
+const gc = $('gimbal-canvas'), gx = gc.getContext('2d');
+function sizeGimbal() { const d = Math.min(2, devicePixelRatio || 1); gc.width = gc.clientWidth * d; gc.height = gc.clientHeight * d; gx.setTransform(d, 0, 0, d, 0, 0); }
+new ResizeObserver(sizeGimbal).observe(gc); sizeGimbal();
+function drawGimbal() {
+  const w = gc.clientWidth, h = gc.clientHeight; if (!w) return;
+  gx.clearRect(0, 0, w, h);
+  const cx = w / 2, cy = h * 0.62, L = Math.min(w * 0.36, 200);
+  const beta = gh.beta.last() * D2R, phi = gim.phi, sp = G.gsp * D2R;
+  gx.setLineDash([5, 5]); gx.strokeStyle = C['--line']; gx.lineWidth = 1;
+  gx.beginPath(); gx.moveTo(cx - L*1.2, cy - 40); gx.lineTo(cx + L*1.2, cy - 40); gx.stroke();
+  gx.save(); gx.translate(cx, cy - 40); gx.rotate(-sp); gx.strokeStyle = C['--ink']; gx.beginPath(); gx.moveTo(-L*1.1, 0); gx.lineTo(L*1.1, 0); gx.stroke(); gx.restore();
+  gx.setLineDash([]);
+  gx.save(); gx.translate(cx, cy); gx.rotate(-beta);
+  gx.fillStyle = C['--muted']; gx.fillRect(-L, 6, 2*L, 14);
+  gx.fillStyle = C['--sunk']; gx.fillRect(-14, -40, 28, 46);
+  gx.restore();
+  gx.save(); gx.translate(cx, cy - 40); gx.rotate(-phi);
+  gx.fillStyle = C['--accent']; gx.fillRect(-L*0.9, -8, 1.8*L, 10);
+  gx.fillStyle = C['--ink']; gx.fillRect(-26, -38, 52, 30); gx.beginPath(); gx.arc(26, -23, 9, 0, 7); gx.fill();
+  gx.restore();
+  gx.fillStyle = C['--ink']; gx.beginPath(); gx.arc(cx, cy - 40, 7, 0, 7); gx.fill();
+  gx.font = '11px "IBM Plex Mono", Consolas, monospace'; gx.fillStyle = C['--muted']; gx.textAlign = 'left'; gx.textBaseline = 'top';
+  gx.fillText(`base ${(beta*R2D).toFixed(1)}°  ·  platform ${(phi*R2D).toFixed(1)}°`, 10, 10);
+  gx.fillText('dashed: setpoint', 10, 26);
+}
+
+/* ============ Allan variance ============ */
+function adevJS(x, tau0, pts = 60) {
+  const n = x.length, th = new Float64Array(n + 1);
+  for (let i = 0; i < n; i++) th[i + 1] = th[i] + x[i] * tau0;
+  const maxM = Math.max(1, Math.floor((n - 1) / 9)), out = [];
+  let prev = 0;
+  for (let j = 0; j < pts; j++) {
+    const m = Math.max(1, Math.round(Math.pow(maxM, j / (pts - 1))));
+    if (m === prev) continue; prev = m;
+    const L = n + 1 - 2 * m; let s = 0;
+    for (let k = 0; k < L; k++) { const d = th[k + 2*m] - 2*th[k + m] + th[k]; s += d * d; }
+    out.push([m * tau0, Math.sqrt(s / (2 * (m * tau0) ** 2 * L))]);
+  }
+  return out;
+}
+function adevFit(c) {   // same rules as allan_analyze.py
+  const lt = c.map(p => Math.log10(p[0])), ld = c.map(p => Math.log10(p[1]));
+  const sl = c.map((_, i) => { const a = Math.max(0, i - 1), b = Math.min(c.length - 1, i + 1); return (ld[b] - ld[a]) / (lt[b] - lt[a] || 1); });
+  let im = 0; c.forEach((p, i) => { if (p[1] < c[im][1]) im = i; });
+  const med = a => { if (!a.length) return null; const s = a.slice().sort((x, y) => x - y); return s[Math.floor(s.length / 2)]; };
+  const lim = Math.max(c[im][0], 1);
+  let N = med(c.filter((p, i) => Math.abs(sl[i] + 0.5) < 0.15 && p[0] <= lim).map(p => p[1] * Math.sqrt(p[0])));
+  if (N === null) N = c[0][1] * Math.sqrt(c[0][0]);
+  const kk = c.filter((p, i) => i > im && Math.abs(sl[i] - 0.5) < 0.2).map(p => p[1] * Math.sqrt(3 / p[0]));
+  return { N, B: c[im][1] / 0.664, tB: c[im][0], K: kk.length >= 3 ? med(kk) : null };
+}
+const AD = { n: 0.01, b: 0.003, k: 3e-4 };
+const allanState = { mode: 'demo', kind: 'g', demo: null, file: null };
+function makeDemo() {
+  const tau0 = 0.01, n = 3600 * 100, x = new Float64Array(n);
+  const Tc = 60, a = Math.exp(-tau0 / Tc), gs = AD.b * Math.sqrt(1 - a * a), ws = AD.n / Math.sqrt(tau0), rs = AD.k * Math.sqrt(tau0);
+  let rw = 0, gm = 0;
+  for (let i = 0; i < n; i++) { rw += rs * gauss(); gm = a * gm + gs * gauss(); x[i] = ws * gauss() + rw + gm; }
+  allanState.demo = adevJS(x, tau0);
+  drawAllan();
+}
+let demoTimer = 0;
+const allanSl = $('allan-sliders');
+[{ key: 'n', label: 'White noise', min: 0.001, max: 0.1, log: true, unit: '°/s/√Hz', dp: 4 },
+ { key: 'b', label: 'Bias wander', min: 1e-4, max: 0.03, log: true, unit: '°/s', dp: 4 },
+ { key: 'k', label: 'Rate RW', min: 1e-5, max: 3e-3, log: true, fmt: v => v.toExponential(1), unit: '°/s/√s' }]
+  .forEach(d => sliderDefs.push(makeSlider(allanSl, d, AD, () => { clearTimeout(demoTimer); demoTimer = setTimeout(makeDemo, 120); })));
+const allanChart = $('allan-chart'), actx = allanChart.getContext('2d');
+new ResizeObserver(() => drawAllan()).observe(allanChart);
+function allanCurves() {
+  if (allanState.mode === 'demo') return allanState.demo ? [{ name: 'Simulated gyro', color: C['--accent'], c: allanState.demo }] : [];
+  const f = allanState.file; if (!f) return [];
+  const ax = [C['--ax-x'], C['--ax-y'], C['--ax-z']];
+  const keys = allanState.kind === 'g' ? ['gx', 'gy', 'gz'] : ['ax', 'ay', 'az'];
+  return keys.map((k, i) => ({ name: k, color: ax[i], c: f.tau.map((t, j) => [t, f[k][j]]).filter(p => p[1] > 0) }));
+}
+function drawAllan() {
+  const d = Math.min(2, devicePixelRatio || 1), w = allanChart.clientWidth, h = allanChart.clientHeight;
+  if (!w || !h) return;
+  allanChart.width = w * d; allanChart.height = h * d; actx.setTransform(d, 0, 0, d, 0, 0); actx.clearRect(0, 0, w, h);
+  const curves = allanCurves();
+  const accel = allanState.mode === 'mine' && allanState.kind === 'a';
+  const scale = accel ? 1e6 : 1, unit = accel ? 'µg' : '°/s';
+  let tl = Infinity, th = -Infinity, yl = Infinity, yh = -Infinity;
+  curves.forEach(s => s.c.forEach(([t, v]) => { tl = Math.min(tl, t); th = Math.max(th, t); yl = Math.min(yl, v * scale); yh = Math.max(yh, v * scale); }));
+  if (!isFinite(tl)) { tl = 0.01; th = 400; yl = 1e-4; yh = 0.1; }
+  const X0 = Math.floor(Math.log10(tl)), X1 = Math.ceil(Math.log10(th)), Y0 = Math.floor(Math.log10(yl)), Y1 = Math.ceil(Math.log10(yh));
+  const L = 52, R = 10, T = 8, B = 30;
+  const X = t => L + (w - L - R) * (Math.log10(t) - X0) / (X1 - X0), Y = v => T + (h - T - B) * (1 - (Math.log10(v) - Y0) / (Y1 - Y0));
+  actx.font = '10px "IBM Plex Mono", Consolas, monospace'; actx.lineWidth = 1;
+  const tfmt = e => e >= 0 ? `${Math.pow(10, e)} s` : `${Math.pow(10, e).toFixed(-e)} s`;
+  for (let e = X0; e <= X1; e++) {
+    for (let m = 1; m < 10; m++) { const t = m * Math.pow(10, e); if (Math.log10(t) > X1) break; actx.strokeStyle = C['--line']; actx.globalAlpha = m === 1 ? 1 : 0.35; actx.beginPath(); actx.moveTo(Math.round(X(t)) + 0.5, T); actx.lineTo(Math.round(X(t)) + 0.5, h - B); actx.stroke(); }
+    actx.globalAlpha = 1; actx.fillStyle = C['--muted']; actx.textAlign = 'center'; actx.textBaseline = 'top'; actx.fillText(tfmt(e), X(Math.pow(10, e)), h - B + 6);
+  }
+  for (let e = Y0; e <= Y1; e++) {
+    for (let m = 1; m < 10; m++) { const v = m * Math.pow(10, e); if (Math.log10(v) > Y1) break; actx.strokeStyle = C['--line']; actx.globalAlpha = m === 1 ? 1 : 0.35; actx.beginPath(); actx.moveTo(L, Math.round(Y(v)) + 0.5); actx.lineTo(w - R, Math.round(Y(v)) + 0.5); actx.stroke(); }
+    actx.globalAlpha = 1; actx.fillStyle = C['--muted']; actx.textAlign = 'right'; actx.textBaseline = 'middle'; actx.fillText(Math.pow(10, e).toExponential(0).replace('e+0', 'e').replace('e-0', 'e-'), L - 6, Y(Math.pow(10, e)));
+  }
+  actx.save(); actx.translate(12, T + (h - T - B) / 2); actx.rotate(-Math.PI / 2); actx.textAlign = 'center'; actx.fillText(`σ(τ)  ${unit}`, 0, 0); actx.restore();
+  actx.save(); actx.beginPath(); actx.rect(L, T, w - L - R, h - T - B); actx.clip();
+  const tbody = $('allan-fit').querySelector('tbody'); let rows = '';
+  curves.forEach((s, idx) => {
+    const f = adevFit(s.c);
+    if (idx === 0 || curves.length === 1) {   // guide lines for the first curve
+      actx.strokeStyle = C['--muted']; actx.setLineDash([4, 4]); actx.lineWidth = 1;
+      const ln = fn => { actx.beginPath(); for (let i = 0; i <= 40; i++) { const t = Math.pow(10, X0 + (X1 - X0) * i / 40), v = fn(t) * scale; i ? actx.lineTo(X(t), Y(v)) : actx.moveTo(X(t), Y(v)); } actx.stroke(); };
+      ln(t => f.N / Math.sqrt(t));
+      ln(() => f.B * 0.664);
+      if (f.K) ln(t => f.K * Math.sqrt(t / 3));
+      actx.setLineDash([]);
+    }
+    actx.strokeStyle = s.color; actx.lineWidth = 2; actx.beginPath();
+    s.c.forEach(([t, v], i) => i ? actx.lineTo(X(t), Y(v * scale)) : actx.moveTo(X(t), Y(v * scale))); actx.stroke();
+    actx.fillStyle = s.color; actx.beginPath(); actx.arc(X(f.tB), Y(f.B * 0.664 * scale), 3.5, 0, 7); actx.fill();
+    rows += accel
+      ? `<tr><td>${s.name}</td><td class="num">${(f.N * 1e6).toFixed(0)} µg/√Hz</td><td class="num">${(f.B * 1e6).toFixed(1)} µg</td><td class="num">${f.K ? (f.K * 1e6).toFixed(2) + ' µg/√s' : 'not reached'}</td></tr>`
+      : `<tr><td>${s.name}</td><td class="num">${f.N.toFixed(4)} °/s/√Hz<br><span class="hint">${(f.N * 60).toFixed(2)} °/√h</span></td><td class="num">${(f.B * 3600).toFixed(1)} °/h<br><span class="hint">at τ ${f.tB.toFixed(0)} s</span></td><td class="num">${f.K ? f.K.toExponential(1) + ' °/s/√s' : 'not reached'}</td></tr>`;
+  });
+  actx.restore();
+  tbody.innerHTML = rows || '<tr><td colspan="4" class="hint">Load a file to see its numbers.</td></tr>';
+  $('allan-legend').innerHTML = curves.map(s => `<button aria-pressed="true"><span class="sw" style="background:${s.color}"></span>${s.name}</button>`).join('') +
+    (curves.length ? '<button aria-pressed="true"><span class="sw" style="background:var(--muted)"></span>fitted −½, flat, +½ lines</button>' : '');
+}
+function setAllanMode(m) {
+  allanState.mode = m;
+  $('allan-demo').setAttribute('aria-pressed', m === 'demo' ? 'true' : 'false');
+  $('allan-mine').setAttribute('aria-pressed', m === 'mine' ? 'true' : 'false');
+  $('allan-demo-ctl').hidden = m !== 'demo'; $('allan-mine-ctl').hidden = m !== 'mine'; $('allan-kind').hidden = m !== 'mine';
+  drawAllan();
+}
+$('allan-demo').onclick = () => setAllanMode('demo');
+$('allan-mine').onclick = () => setAllanMode('mine');
+document.querySelectorAll('#allan-kind [data-kind]').forEach(b => b.onclick = () => {
+  allanState.kind = b.dataset.kind;
+  document.querySelectorAll('#allan-kind [data-kind]').forEach(x => x.setAttribute('aria-pressed', x === b ? 'true' : 'false'));
+  drawAllan();
+});
+$('allan-file').onchange = e => {
+  const file = e.target.files[0]; if (!file) return;
+  const rd = new FileReader();
+  rd.onload = () => {
+    const lines = String(rd.result).trim().split(/\r?\n/);
+    const head = lines[0].split(',');
+    const need = ['tau_s', 'gx_dps', 'gy_dps', 'gz_dps', 'ax_g', 'ay_g', 'az_g'];
+    if (!need.every(k => head.includes(k))) { $('allan-file-out').textContent = 'That file has no tau_s, gx_dps … columns. Load the _adev.csv that allan_analyze.py writes.'; return; }
+    const col = k => head.indexOf(k), f = { tau: [], gx: [], gy: [], gz: [], ax: [], ay: [], az: [] };
+    lines.slice(1).forEach(l => { const v = l.split(',').map(Number); if (v.length < head.length || v.some(x => !isFinite(x))) return;
+      f.tau.push(v[col('tau_s')]); ['gx', 'gy', 'gz'].forEach(k => f[k].push(v[col(k + '_dps')])); ['ax', 'ay', 'az'].forEach(k => f[k].push(v[col(k + '_g')])); });
+    allanState.file = f;
+    $('allan-file-out').textContent = `${file.name}: ${f.tau.length} points, τ from ${f.tau[0]} s to ${Math.round(f.tau[f.tau.length - 1])} s.`;
+    drawAllan();
+  };
+  rd.readAsText(file);
+};
+setTimeout(makeDemo, 300);
+
+/* ============ Theme changes ============ */
+function retheme() { readTokens(); ALGOS.forEach(A => A.view && A.view.retheme()); drawAllan(); }
+matchMedia('(prefers-color-scheme: dark)').addEventListener('change', retheme);
+new MutationObserver(retheme).observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme', 'class'] });
+
+/* ============ Main loop ============ */
+let labVisible = true, gimVisible = true;
+new IntersectionObserver(e => { labVisible = e[0].isIntersecting; }).observe($('lab'));
+new IntersectionObserver(e => { gimVisible = e[0].isIntersecting; }).observe($('control'));
+let last = performance.now(), acc = 0, textT = 0;
+resetFilters(sim.qTrue(0));
+function frame(now) {
+  let el = (now - last) / 1000; last = now; if (el > 0.25) el = 0.25;
+  if (app.source === 'sim' && !app.paused) {
+    acc += el; let n = 0;
+    while (acc >= SIM_DT && n < 25) { processSample(sim.step(SIM_DT)); acc -= SIM_DT; n++; }
+    if (n === 25) acc = 0;
+  }
+  if (now - app.rateT > 1000) { app.rate = app.rateCount * 1000 / (now - app.rateT); app.rateCount = 0; app.rateT = now; }
+  if (present.on) {
+    const A = presentAlgo();
+    if (present.view) present.view.render(shown(A.id, A.f.q), null);
+  } else if (labVisible) {
+    const qt = app.source === 'sim' ? app.lastTruth : null;
+    const act = active();
+    act.forEach(A => A.view && A.view.render(shown(A.id, A.f.q), qt && shown('truth', qt)));
+    const ax = app.axis;
+    const series = act.filter(A => !app.hidden.has(A.id)).map(A => ({ ring: hist[A.id][ax], color: A.color, endDot: true }));
+    if (app.source === 'sim' && !app.hidden.has('truth')) series.push({ ring: hist.truth[ax], color: C['--truth'], dash: [5, 4], width: 1.4 });
+    angleChart.draw(series, { wrap: ax !== 1, minSpan: 10, timeAxis: true });
+    const axc = [C['--ax-x'], C['--ax-y'], C['--ax-z']];
+    rawCharts.acc.draw(raw.acc.map((r, i) => ({ ring: r, color: axc[i], width: 1.2 })), { minSpan: 0.5 });
+    rawCharts.gyro.draw(raw.gyro.map((r, i) => ({ ring: r, color: axc[i], width: 1.2 })), { minSpan: 5 });
+    rawCharts.mag.draw(raw.mag.map((r, i) => ({ ring: r, color: axc[i], width: 1.2 })), { minSpan: 20 });
+  }
+  if (gimVisible) {
+    drawGimbal();
+    gimbalChart.draw([{ ring: gh.beta, color: C['--muted'], width: 1.2 }, { ring: gh.sp, color: C['--ink'], dash: [5, 4], width: 1.2 }, { ring: gh.phi, color: C['--accent'], width: 2, endDot: true }], { minSpan: 4, timeAxis: true });
+  }
+  if (now - textT > 100) { updateText(); textT = now; }
+  requestAnimationFrame(frame);
+}
+requestAnimationFrame(frame);
+})();
+</script>

@@ -1,0 +1,60 @@
+menu "IMU Lab"
+
+    choice IMU_RATE
+        prompt "Sensor read and fusion rate"
+        default IMU_RATE_500
+        help
+            How often the ESP32 reads the ICM-20600 and runs Mahony + ESKF. Output to the lab
+            stays at 100 Hz either way. One 14-byte I2C read takes ~0.8 ms with only the ESP32's
+            internal pull-ups, so 1000 Hz doesn't fit. Add 2.2-4.7 kOhm pull-ups from SDA and
+            SCL to 3.3 V before choosing 1000 Hz, and check the timing line in the log.
+
+        config IMU_RATE_500
+            bool "500 Hz (fits with internal pull-ups)"
+        config IMU_RATE_1000
+            bool "1000 Hz (needs external pull-up resistors)"
+    endchoice
+
+    config IMU_RATE_HZ
+        int
+        default 1000 if IMU_RATE_1000
+        default 500
+
+    config IMU_WIFI_SSID
+        string "Home Wi-Fi name (SSID)"
+        default ""
+        help
+            Optional. Saved as the first known network on a fresh board. Normally you add
+            networks from the admin page instead (http://192.168.4.1/), which keeps up to 5.
+
+    config IMU_WIFI_PASSWORD
+        string "Home Wi-Fi password"
+        default ""
+
+    config IMU_AP_SSID
+        string "ESP32 access point name"
+        default "IMU-Lab"
+        help
+            The ESP32 always runs this access point. Join it from your computer and
+            connect the lab to ws://192.168.4.1/ws.
+
+    config IMU_AP_PASSWORD
+        string "ESP32 access point password (8+ characters, empty for open)"
+        default "imulab1234"
+
+    config IMU_HOSTNAME
+        string "Hostname on your home network"
+        default "imu-lab"
+        help
+            The lab can connect to <hostname>.local instead of an IP address.
+
+    config IMU_OTA_PASSWORD
+        string "Admin password: firmware updates and admin page commands (empty = none)"
+        default ""
+        help
+            Anyone who can reach the ESP32 over Wi-Fi can send it new firmware, change its
+            Wi-Fi or restart it from the admin page. On its own
+            access point that is only people who know the AP password. If you join the ESP32
+            to a shared network, set a password here and pass it to tools/ota.py --password.
+
+endmenu
